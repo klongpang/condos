@@ -275,7 +275,7 @@ export default function ReportsPage() {
                 {monthlyIncomeData.map((data, index) => (
                   <tr key={index} className="border-b border-gray-700">
                     <td className="py-2 text-white">{data.month}</td>
-                    <td className="py-2 text-right text-green-400">฿{data.income.toLocaleString()}</td>
+                    <td className="py-2 text-right text-green-400">���{data.income.toLocaleString()}</td>
                     <td className="py-2 text-right text-red-400">฿{data.expenses.toLocaleString()}</td>
                     <td className="py-2 text-right text-white font-medium">฿{data.net.toLocaleString()}</td>
                   </tr>

@@ -25,10 +25,10 @@ export default function LoginPage() {
       if (success) {
         router.push("/dashboard")
       } else {
-        setError("Invalid username or password")
+        setError("ผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")
       }
     } catch (err) {
-      setError("error occurred. Please try again.")
+      setError("ไม่สามารถเข้าระบบได้")
     } finally {
       setLoading(false)
     }
@@ -41,8 +41,8 @@ export default function LoginPage() {
           <div className="flex justify-center">
             <Building2 className="h-12 w-12 text-green-500" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-white">CondoManager</h2>
-          <p className="mt-2 text-sm text-gray-400">Sign in to your account</p>
+          <h2 className="mt-6 text-3xl font-bold text-white">ระบบจัดการคอนโด</h2>
+          <p className="mt-2 text-sm text-gray-400">เข้าสู่ระบบด้วยบัญชีของคุณ</p>
         </div>
 
         <div className="bg-gray-800 rounded-lg border border-gray-700 p-8">
@@ -103,12 +103,12 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          {/* <div className="mt-6 text-center">
             <p className="text-xs text-gray-400">
               Demo credentials: username: <span className="text-green-400">admin</span>, password:{" "}
               <span className="text-green-400">password</span>
             </p>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>

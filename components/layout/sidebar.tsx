@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"  // <-- import useRouter
 import { Home, Building2, Users, CreditCard, TrendingUp, FileText, Bell, Settings, LogOut, History } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
@@ -18,14 +18,20 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()  // <-- เพิ่มตรงนี้
   const { user, logout } = useAuth()
+
+  const handleLogout = async () => {
+    await logout()      // เรียก logout ฟังก์ชันของคุณ
+    router.push('/login')  // หลัง logout เสร็จ redirect ไป /login
+  }
 
   return (
     <div className="flex h-full w-64 flex-col bg-gray-900 border-r border-gray-800">
       {/* Logo */}
       <div className="flex h-16 items-center px-6 border-b border-gray-800">
         <Building2 className="h-8 w-8 text-green-500" />
-        <span className="ml-2 text-xl font-bold text-white">CondoManager</span>
+        <span className="ml-2 text-xl font-bold text-white">จัดการคอนโด</span>
       </div>
 
       {/* Navigation */}
@@ -69,7 +75,7 @@ export function Sidebar() {
             ตั้งค่าโปรไฟล์
           </Link>
           <button
-            onClick={logout}
+            onClick={handleLogout}   // <-- ใช้ฟังก์ชันนี้แทน
             className="flex items-center w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
           >
             <LogOut className="mr-3 h-4 w-4" />

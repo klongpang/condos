@@ -3,14 +3,19 @@ import type { User, Condo, Tenant, RentPayment, IncomeRecord, ExpenseRecord, Ten
 
 // User functions
 export const userService = {
-  async authenticate(username: string, password: string): Promise<User | null> {
-    const { data, error } = await supabase.from("users").select("*").eq("username", username).single()
+  async authenticate(username: string, password: string): Promise<User | null> {const { data, error } = await supabase
+    .from("users")
+    .select("*")
+    .eq("username", username)
+    .single();
 
-    if (error || !data) return null
+  if (error || !data) return null;
 
-    // In production, you should hash and compare passwords properly
-    // For demo purposes, we'll use a simple check
-    return data
+  if (data.password === password) {
+    return data;
+  }
+
+  return null;
   },
 
   async getById(id: string): Promise<User | null> {
@@ -20,10 +25,14 @@ export const userService = {
   },
 
   async create(userData: Omit<User, "id" | "created_at">): Promise<User | null> {
-    const { data, error } = await supabaseAdmin.from("users").insert([userData]).select().single()
+  const { data, error } = await supabaseAdmin!
+    .from("users")
+    .insert([userData])
+    .select()
+    .single()
 
-    return error ? null : data
-  },
+  return error ? null : data
+  }
 }
 
 // Condo functions

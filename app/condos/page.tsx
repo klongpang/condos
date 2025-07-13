@@ -163,9 +163,9 @@ export default function CondosPage() {
           <button onClick={() => openFileModal(condo)} className="text-green-400 hover:text-green-300" title="แนบไฟล์">
             <FileText className="h-4 w-4" />
           </button>
-          <button onClick={() => handleDelete(condo)} className="text-red-400 hover:text-red-300" title="ปิดใช้งาน">
+          {/* <button onClick={() => handleDelete(condo)} className="text-red-400 hover:text-red-300" title="ปิดใช้งาน">
             <X className="h-4 w-4" />
-          </button>
+          </button> */}
         </div>
       ),
     },

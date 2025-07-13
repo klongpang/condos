@@ -1,0 +1,8 @@
+# ใช้ LF สำหรับไฟล์โค้ด
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+
+# ถ้ามี shell script หรือไฟล์อื่น เพิ่มได้
+*.sh text eol=lf

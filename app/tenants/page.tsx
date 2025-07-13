@@ -9,19 +9,12 @@ import { Modal } from "@/components/ui/modal"
 import { useAuth } from "@/lib/auth-context"
 import type { Tenant } from "@/lib/supabase"
 import { useTenantsDB, useCondosDB } from "@/lib/hooks/use-database"
-import { useTenantHistoryDB } from "@/lib/hooks/use-database"
+import { tenantHistoryService } from "@/lib/database"
 
 export default function TenantsPage() {
   const { user } = useAuth()
   const { tenants, loading, addTenant, updateTenant } = useTenantsDB()
-  const { condos } = useCondosDB(user?.id)
-  const { tenantHistory, addTenantHistory } = useTenantHistoryDB()
-
-  // Filter states
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "vacant">("active")
-  const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>("")
-
-  // Modal states
+  const { condos } = useCondosDB(user?.id) // ดึงเฉพาะ condos ของ user นั้นๆ
   const [isEndContractModalOpen, setIsEndContractModalOpen] = useState(false)
   const [selectedTenantForEnd, setSelectedTenantForEnd] = useState<Tenant | null>(null)
   const [endContractData, setEndContractData] = useState({
@@ -30,6 +23,11 @@ export default function TenantsPage() {
     notes: "",
   })
 
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "vacant">("active")
+  const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>("")
+
+  // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null)
   const [formData, setFormData] = useState({
@@ -43,8 +41,11 @@ export default function TenantsPage() {
     monthly_rent: "",
   })
 
-  // Filter tenants based on status and condo
-  const filteredTenants = tenants.filter((tenant) => {
+  // Filter tenants based on status and condo - เฉพาะ condos ของ user นั้นๆ
+  const userCondoIds = condos.map((c) => c.id)
+  const userTenants = tenants.filter((tenant) => userCondoIds.includes(tenant.condo_id))
+
+  const filteredTenants = userTenants.filter((tenant) => {
     const statusMatch =
       statusFilter === "all" ||
       (statusFilter === "active" && tenant.is_active) ||
@@ -55,23 +56,33 @@ export default function TenantsPage() {
     return statusMatch && condoMatch
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     const tenantData = {
-      ...formData,
+      condo_id: formData.condo_id,
+      full_name: formData.full_name,
+      phone: formData.phone || undefined,
+      line_id: formData.line_id || undefined,
+      rental_start: formData.rental_start,
+      rental_end: formData.rental_end,
       deposit: formData.deposit ? Number.parseFloat(formData.deposit) : undefined,
       monthly_rent: Number.parseFloat(formData.monthly_rent),
       is_active: true,
+      status: "active" as const,
     }
 
-    if (editingTenant) {
-      updateTenant(editingTenant.id, tenantData)
-    } else {
-      addTenant(tenantData)
+    try {
+      if (editingTenant) {
+        await updateTenant(editingTenant.id, tenantData)
+      } else {
+        await addTenant(tenantData)
+      }
+      resetForm()
+    } catch (error) {
+      console.error("Error saving tenant:", error)
+      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล")
     }
-
-    resetForm()
   }
 
   const resetForm = () => {
@@ -114,39 +125,49 @@ export default function TenantsPage() {
     setIsEndContractModalOpen(true)
   }
 
-  const submitEndContract = (e: React.FormEvent) => {
+  const submitEndContract = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedTenantForEnd) return
 
-    addTenantHistory({
-      condo_id: selectedTenantForEnd.condo_id,
-      full_name: selectedTenantForEnd.full_name,
-      phone: selectedTenantForEnd.phone || "",
-      line_id: selectedTenantForEnd.line_id || "",
-      rental_start: selectedTenantForEnd.rental_start,
-      rental_end: selectedTenantForEnd.rental_end,
-      deposit: selectedTenantForEnd.deposit || 0,
-      monthly_rent: selectedTenantForEnd.monthly_rent,
-      is_active: false,
-      end_reason: endContractData.end_reason,
-      actual_end_date: endContractData.actual_end_date,
-      notes: endContractData.notes,
-    })
+    try {
+      // สร้างประวัติผู้เช่าใน tenant_history table
+      await tenantHistoryService.create({
+        condo_id: selectedTenantForEnd.condo_id,
+        full_name: selectedTenantForEnd.full_name,
+        phone: selectedTenantForEnd.phone,
+        line_id: selectedTenantForEnd.line_id,
+        rental_start: selectedTenantForEnd.rental_start,
+        rental_end: selectedTenantForEnd.rental_end,
+        actual_end_date: endContractData.actual_end_date,
+        deposit: selectedTenantForEnd.deposit,
+        monthly_rent: selectedTenantForEnd.monthly_rent,
+        end_reason: endContractData.end_reason,
+        notes: endContractData.notes,
+      })
 
-    updateTenant(selectedTenantForEnd.id, {
-      is_active: false,
-      end_reason: endContractData.end_reason,
-      actual_end_date: endContractData.actual_end_date,
-      notes: endContractData.notes,
-    })
+      // อัพเดทสถานะผู้เช่าให้เป็น inactive
+      await updateTenant(selectedTenantForEnd.id, {
+        is_active: false,
+        status: "ended",
+        end_reason: endContractData.end_reason,
+        actual_end_date: endContractData.actual_end_date,
+        notes: endContractData.notes,
+      })
 
-    setIsEndContractModalOpen(false)
-    setSelectedTenantForEnd(null)
-    setEndContractData({
-      end_reason: "expired",
-      actual_end_date: "",
-      notes: "",
-    })
+      // รีเซ็ตฟอร์ม
+      setIsEndContractModalOpen(false)
+      setSelectedTenantForEnd(null)
+      setEndContractData({
+        end_reason: "expired",
+        actual_end_date: "",
+        notes: "",
+      })
+
+      alert("สิ้นสุดสัญญาเรียบร้อยแล้ว")
+    } catch (error) {
+      console.error("Error ending contract:", error)
+      alert("เกิดข้อผิดพลาดในการสิ้นสุดสัญญา")
+    }
   }
 
   const columns = [
