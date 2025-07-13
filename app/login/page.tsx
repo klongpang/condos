@@ -28,7 +28,7 @@ export default function LoginPage() {
         setError("Invalid username or password")
       }
     } catch (err) {
-      setError("An error occurred. Please try again.")
+      setError("error occurred. Please try again.")
     } finally {
       setLoading(false)
     }
