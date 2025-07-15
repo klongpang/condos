@@ -2,14 +2,15 @@
 
 import type React from "react"
 import { useState } from "react"
-import { Plus, Edit, FileText, Upload, File, X } from "lucide-react"
+import { Plus, Edit, FileText, Upload, File, X, Eye } from "lucide-react"
 import { MainLayout } from "@/components/layout/main-layout"
 import { DataTable } from "@/components/ui/data-table"
 import { Modal } from "@/components/ui/modal"
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"
 import { useAuth } from "@/lib/auth-context"
 import type { Condo } from "@/lib/supabase"
-import { useCondosDB } from "@/lib/hooks/use-database"
+import { useCondosDB, useDocumentsDB } from "@/lib/hooks/use-database"
+import { uploadDocument, deleteDocumentAction } from "@/app/actions/document-actions"
 
 export default function CondosPage() {
   const { user } = useAuth()
@@ -20,6 +21,9 @@ export default function CondosPage() {
   const [selectedCondo, setSelectedCondo] = useState<Condo | null>(null)
   const [editingCondo, setEditingCondo] = useState<Condo | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const { documents, loading: documentsLoading, refetch: refetchDocuments } = useDocumentsDB(selectedCondo?.id) // Use refetch
+  const [documentType, setDocumentType] = useState<string>("")
+  const [isUploading, setIsUploading] = useState(false)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -31,7 +35,7 @@ export default function CondosPage() {
     seller: "",
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     const condoData = {
@@ -41,13 +45,17 @@ export default function CondosPage() {
       is_active: true,
     }
 
-    if (editingCondo) {
-      updateCondo(editingCondo.id, condoData)
-    } else {
-      addCondo(condoData)
+    try {
+      if (editingCondo) {
+        await updateCondo(editingCondo.id, condoData)
+      } else {
+        await addCondo(condoData)
+      }
+      resetForm()
+    } catch (error) {
+      console.error("Error saving condo:", error)
+      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูลคอนโด")
     }
-
-    resetForm()
   }
 
   const resetForm = () => {
@@ -83,10 +91,18 @@ export default function CondosPage() {
     setIsDeleteModalOpen(true)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedCondo) {
-      updateCondo(selectedCondo.id, { is_active: false })
-      setSelectedCondo(null)
+      try {
+        await updateCondo(selectedCondo.id, { is_active: false })
+        alert(`คอนโด "${selectedCondo.name}" ถูกปิดใช้งานแล้ว`)
+      } catch (error) {
+        console.error("Error deactivating condo:", error)
+        alert("เกิดข้อผิดพลาดในการปิดใช้งานคอนโด")
+      } finally {
+        setSelectedCondo(null)
+        setIsDeleteModalOpen(false)
+      }
     }
   }
 
@@ -102,26 +118,63 @@ export default function CondosPage() {
   const openFileModal = (condo: Condo) => {
     setSelectedCondo(condo)
     setUploadedFiles([])
+    setDocumentType("")
     setIsFileModalOpen(true)
+    refetchDocuments()
   }
 
-  const handleFileSubmit = () => {
+  const handleFileSubmit = async () => {
     if (uploadedFiles.length === 0) {
-      alert("กรุณาเลือกไฟล์ที่ต้องการอัพโหลด")
+      alert("กรุณาเลือกไฟล์ที่ต้องการอัปโหลด")
       return
     }
+    if (!documentType) {
+      alert("กรุณาเลือกประเภทเอกสาร")
+      return
+    }
+    if (!selectedCondo) return
 
-    // Here you would typically upload files to your storage service
-    console.log("Uploading files for condo:", selectedCondo?.name, uploadedFiles)
+    setIsUploading(true)
 
-    // Simulate upload success
-    alert(`อัพโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`)
+        try {
+          for (const file of uploadedFiles) { 
+          const formData = new FormData()
+          formData.append("file", file)
+          formData.append("condoId", selectedCondo.id)
+          formData.append("documentType", documentType)
 
-    // Reset and close modal
-    setUploadedFiles([])
-    setIsFileModalOpen(false)
-    setSelectedCondo(null)
-  }
+          const result = await uploadDocument(formData)
+          if (!result.success) {
+            throw new Error(result.message)
+          }
+        }
+          alert(`อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`)
+          setUploadedFiles([])
+          setDocumentType("")
+          setIsFileModalOpen(false)
+          refetchDocuments()
+        } catch (error: any) {
+          console.error("Error uploading files:", error)
+          alert(`เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ${error.message}`)
+        } finally {
+          setIsUploading(false)
+        }
+      }
+      const handleDocumentDelete = async (docId: string, fileUrl: string, docName: string) => {
+        if (window.confirm(`คุณต้องการลบเอกสาร "${docName}" หรือไม่?`)) {
+          try {
+            const result = await deleteDocumentAction(docId, fileUrl)
+            if (!result.success) {
+              throw new Error(result.message)
+            }
+            alert(`เอกสาร "${docName}" ถูกลบแล้ว`)
+            refetchDocuments() // Refetch documents after successful deletion
+          } catch (error: any) {
+            console.error("Error deleting document:", error)
+            alert(`เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`)
+          }
+        }
+      }
 
   const columns = [
     {
@@ -169,6 +222,14 @@ export default function CondosPage() {
         </div>
       ),
     },
+  ]
+
+  const documentTypes = [
+    { value: "condo_image", label: "รูปคอนโด" },
+    { value: "purchase_contract", label: "สัญญาเช่าซื้อขาย" },
+    { value: "land_deed", label: "โฉนด" },
+    { value: "insurance", label: "ประกัน" },
+    { value: "other", label: "อื่นๆ" },
   ]
 
   return (
@@ -299,12 +360,29 @@ export default function CondosPage() {
           onClose={() => {
             setIsFileModalOpen(false)
             setSelectedCondo(null)
+            setDocumentType("")
             setUploadedFiles([])
           }}
           title={`แนบไฟล์ - ${selectedCondo?.name}`}
           size="lg"
         >
           <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">ประเภทเอกสาร *</label>
+              <select
+                required
+                value={documentType}
+                onChange={(e) => setDocumentType(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">เลือกประเภทเอกสาร</option>
+                {documentTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">เลือกไฟล์เอกสาร</label>
               <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center">
@@ -322,8 +400,8 @@ export default function CondosPage() {
                   htmlFor="condo-file-upload"
                   className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg cursor-pointer transition-colors"
                 >
-                  <Upload className="h-4 w-4 mr-2" />
-                  เลือกไฟล์
+                  <Plus className="h-4 w-4 mr-2" />
+                  เพิ่มไฟล์
                 </label>
                 <p className="text-xs text-gray-500 mt-2">รองรับไฟล์: PDF, DOC, DOCX, JPG, PNG, TXT</p>
               </div>
@@ -358,12 +436,57 @@ export default function CondosPage() {
               </div>
             )}
 
+            {documents.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-300 mb-2">เอกสารที่มีอยู่ ({documents.length} ไฟล์):</h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {documents.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
+                      <div className="flex items-center flex-1 min-w-0">
+                        <File className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <span className="text-sm text-white truncate block">{doc.name}</span>
+                          <span className="text-xs text-gray-400">
+                            {documentTypes.find((t) => t.value === doc.document_type)?.label ||
+                              doc.document_type ||
+                              "ไม่ระบุประเภท"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
+                        {doc.file_url && (
+                          <a
+                            href={doc.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300"
+                            title="ดู/ดาวน์โหลด"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDocumentDelete(doc.id, doc.file_url || "", doc.name)}
+                          className="text-red-400 hover:text-red-300"
+                          title="ลบเอกสาร"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end space-x-3 pt-4">
               <button
                 type="button"
                 onClick={() => {
                   setIsFileModalOpen(false)
                   setSelectedCondo(null)
+                  setDocumentType("")
                   setUploadedFiles([])
                 }}
                 className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
@@ -373,9 +496,9 @@ export default function CondosPage() {
               <button
                 onClick={handleFileSubmit}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={uploadedFiles.length === 0}
+                disabled={uploadedFiles.length === 0 || !documentType || isUploading}
               >
-                อัพโหลดไฟล์ ({uploadedFiles.length})
+                {isUploading ? "กำลังอัปโหลด..." : `อัปโหลดไฟล์ (${uploadedFiles.length})`}
               </button>
             </div>
           </div>

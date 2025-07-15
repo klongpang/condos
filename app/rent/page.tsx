@@ -1,49 +1,78 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { Plus, Check, AlertTriangle, Clock, Upload, File, X } from "lucide-react"
+import { useState, useMemo } from "react"
+import { Plus, Check, AlertTriangle, Clock, Upload, File, X, Filter, Edit } from "lucide-react"
 import { MainLayout } from "@/components/layout/main-layout"
 import { DataTable } from "@/components/ui/data-table"
 import { Modal } from "@/components/ui/modal"
-import { useRentPayments } from "@/lib/hooks/use-data"
+import { useRentPaymentsDB, useCondosDB, useTenantsDB } from "@/lib/hooks/use-database"
+import { useAuth } from "@/lib/auth-context"
 import type { RentPayment } from "@/lib/supabase"
-import { mockTenants, mockCondos } from "@/lib/mock-data"
+import { uploadDocument } from "@/app/actions/document-actions" // Import Server Actions
 
 export default function RentPage() {
-  const { payments, loading, addPayment, updatePayment } = useRentPayments()
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const { user } = useAuth()
+  const { payments, loading, addPayment, updatePayment, refetch: refetchPayments } = useRentPaymentsDB(user?.id)
+  const { condos } = useCondosDB(user?.id)
+  const { tenants } = useTenantsDB(user?.id)
   const [isCreatePaymentModalOpen, setIsCreatePaymentModalOpen] = useState(false)
-  const [isRecordPaymentModalOpen, setIsRecordPaymentModalOpen] = useState(false)
+  const [isEditPaymentModalOpen, setIsEditPaymentModalOpen] = useState(false) // New state for edit modal
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [isUploading, setIsUploading] = useState(false)
 
-  // Form data for creating new payment record
-  const [createFormData, setCreateFormData] = useState({
+  // Filter states
+  const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>("")
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<"all" | "unpaid" | "paid" | "overdue">("all")
+
+  // Form data for creating/editing payment record
+  const [formData, setFormData] = useState({
     tenant_id: "",
-    due_date: "",
-    month_number: "",
-    notes: "",
-  })
-
-  // Form data for recording payment
-  const [recordFormData, setRecordFormData] = useState({
     amount: "",
-    payment_date: "",
-    month_number: "",
+    due_date: "",
+    paid_date: "",
+    status: "unpaid" as "unpaid" | "paid" | "overdue",
     notes: "",
   })
 
-  const handleRecordPayment = (payment: RentPayment) => {
-    setSelectedPayment(payment)
-    setRecordFormData({
-      amount: payment.amount.toString(),
-      payment_date: new Date().toISOString().split("T")[0],
-      month_number: "",
+  // Filter payments based on selected condo and status
+  const filteredPayments = useMemo(() => {
+    let filtered = payments
+    if (selectedCondoFilter) {
+      filtered = filtered.filter((p) => p.tenant?.condo_id === selectedCondoFilter)
+    }
+    if (paymentStatusFilter !== "all") {
+      filtered = filtered.filter((p) => p.status === paymentStatusFilter)
+    }
+    return filtered
+  }, [payments, selectedCondoFilter, paymentStatusFilter])
+
+  const handleOpenCreateModal = () => {
+    setFormData({
+      tenant_id: "",
+      amount: "",
+      due_date: "",
+      paid_date: "",
+      status: "unpaid",
       notes: "",
     })
     setUploadedFiles([])
-    setIsRecordPaymentModalOpen(true)
+    setIsCreatePaymentModalOpen(true)
+  }
+
+  const handleOpenEditModal = (payment: RentPayment) => {
+    setSelectedPayment(payment)
+    setFormData({
+      tenant_id: payment.tenant_id,
+      amount: payment.amount.toString(),
+      due_date: payment.due_date,
+      paid_date: payment.paid_date || "",
+      status: payment.status,
+      notes: payment.notes || "",
+    })
+    setUploadedFiles([]) // Clear files for edit, user will re-upload if needed
+    setIsEditPaymentModalOpen(true)
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,60 +84,72 @@ export default function RentPage() {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleCreatePayment = (e: React.FormEvent) => {
+  const handleSavePayment = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!createFormData.tenant_id || !createFormData.due_date) {
-      alert("กรุณาเลือกผู้เช่าและระบุวันครบกำหนด")
+    if (!formData.tenant_id || !formData.due_date || !formData.amount) {
+      alert("กรุณากรอกข้อมูลที่จำเป็น: ผู้เช่า, จำนวนเงิน, และวันครบกำหนด")
       return
     }
 
-    const tenant = mockTenants.find((t) => t.id === createFormData.tenant_id)
-    if (!tenant) return
+    if (formData.status === "paid" && !formData.paid_date) {
+      alert("กรุณากรอกวันที่ชำระ หากสถานะเป็น 'ชำระแล้ว'")
+      return
+    }
 
-    // Create new payment record with unpaid status
-    addPayment({
-      tenant_id: createFormData.tenant_id,
-      amount: tenant.monthly_rent, // Use tenant's monthly rent as default
-      due_date: createFormData.due_date,
-      status: "unpaid",
-      notes: createFormData.notes,
-    })
+    const paymentData = {
+      tenant_id: formData.tenant_id,
+      amount: Number.parseFloat(formData.amount),
+      due_date: formData.due_date,
+      paid_date: formData.paid_date || undefined,
+      status: formData.status,
+      notes: formData.notes || undefined,
+    }
 
-    // Reset form
-    setCreateFormData({
-      tenant_id: "",
-      due_date: "",
-      month_number: "",
-      notes: "",
-    })
-    setIsCreatePaymentModalOpen(false)
-  }
+    try {
+      let savedPayment: RentPayment | null = null
+      if (selectedPayment) {
+        // Editing existing payment
+        savedPayment = await updatePayment(selectedPayment.id, paymentData)
+      } else {
+        // Creating new payment
+        savedPayment = await addPayment(paymentData)
+      }
 
-  const handleSubmitPayment = (e: React.FormEvent) => {
-    e.preventDefault()
+      if (savedPayment) {
+        // Handle file uploads if any
+        if (uploadedFiles.length > 0) {
+          setIsUploading(true)
+          for (const file of uploadedFiles) {
+            const uploadFormData = new FormData()
+            uploadFormData.append("file", file)
+            uploadFormData.append("condoId", savedPayment.tenant?.condo_id || "") // Link to condo of the tenant
+            uploadFormData.append("documentType", "payment_receipt") // Specific document type for payment receipts
+            // Optionally, you could add a recordId if the documents table supported it directly
+            // uploadFormData.append("recordId", savedPayment.id);
 
-    // Simplified validation - no required fields
-    if (!selectedPayment) return
-
-    // Update payment status to paid
-    updatePayment(selectedPayment.id, {
-      status: "paid",
-      paid_date: recordFormData.payment_date || new Date().toISOString().split("T")[0],
-      amount: recordFormData.amount ? Number.parseFloat(recordFormData.amount) : selectedPayment.amount,
-      notes: recordFormData.notes,
-    })
-
-    // Reset form
-    setRecordFormData({
-      amount: "",
-      payment_date: "",
-      month_number: "",
-      notes: "",
-    })
-    setUploadedFiles([])
-    setSelectedPayment(null)
-    setIsRecordPaymentModalOpen(false)
+            const result = await uploadDocument(uploadFormData)
+            if (!result.success) {
+              throw new Error(result.message)
+            }
+          }
+          alert(`อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`)
+        }
+        alert(`บันทึกรายการชำระเงินสำเร็จ`)
+        refetchPayments() // Refresh data after save
+      } else {
+        alert("เกิดข้อผิดพลาดในการบันทึกรายการชำระเงิน")
+      }
+    } catch (error: any) {
+      console.error("Error saving payment record:", error)
+      alert(`เกิดข้อผิดพลาดในการบันทึกรายการชำระเงิน: ${error.message}`)
+    } finally {
+      setIsUploading(false)
+      setIsCreatePaymentModalOpen(false)
+      setIsEditPaymentModalOpen(false)
+      setSelectedPayment(null)
+      setUploadedFiles([])
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -149,8 +190,8 @@ export default function RentPage() {
       key: "tenant_id",
       header: "ผู้เช่า",
       render: (payment: RentPayment) => {
-        const tenant = mockTenants.find((t) => t.id === payment.tenant_id)
-        const condo = tenant ? mockCondos.find((c) => c.id === tenant.condo_id) : null
+        const tenant = payment.tenant
+        const condo = tenant?.condo
         return (
           <div>
             <div className="font-medium">{tenant?.full_name || "ไม่ทราบ"}</div>
@@ -202,32 +243,23 @@ export default function RentPage() {
       header: "การดำเนินการ",
       render: (payment: RentPayment) => (
         <div className="flex space-x-2">
-          {payment.status !== "paid" && (
-            <button
-              onClick={() => handleRecordPayment(payment)}
-              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors"
-            >
-              บันทึกการชำระ
-            </button>
-          )}
           <button
-            onClick={() => {
-              setSelectedPayment(payment)
-              setIsModalOpen(true)
-            }}
+            onClick={() => handleOpenEditModal(payment)}
             className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+            title="แก้ไขรายการ"
           >
-            รายละเอียด
+            <Edit className="h-4 w-4 mr-1" />
+            แก้ไข
           </button>
         </div>
       ),
     },
   ]
 
-  // Filter payments by status
-  const unpaidPayments = payments.filter((p) => p.status === "unpaid")
-  const overduePayments = payments.filter((p) => p.status === "overdue")
-  const paidPayments = payments.filter((p) => p.status === "paid")
+  // Filter payments by status for summary cards
+  const unpaidPaymentsCount = filteredPayments.filter((p) => p.status === "unpaid").length
+  const overduePaymentsCount = filteredPayments.filter((p) => p.status === "overdue").length
+  const paidPaymentsCount = filteredPayments.filter((p) => p.status === "paid").length
 
   return (
     <MainLayout>
@@ -239,7 +271,7 @@ export default function RentPage() {
             <p className="text-gray-400">ติดตามและจัดการการชำระค่าเช่า</p>
           </div>
           <button
-            onClick={() => setIsCreatePaymentModalOpen(true)}
+            onClick={handleOpenCreateModal}
             className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -253,7 +285,7 @@ export default function RentPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-yellow-300">ยังไม่ชำระ</p>
-                <p className="text-2xl font-bold text-white">{unpaidPayments.length}</p>
+                <p className="text-2xl font-bold text-white">{unpaidPaymentsCount}</p>
               </div>
               <Clock className="h-8 w-8 text-yellow-500" />
             </div>
@@ -263,7 +295,7 @@ export default function RentPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-red-300">เกินกำหนด</p>
-                <p className="text-2xl font-bold text-white">{overduePayments.length}</p>
+                <p className="text-2xl font-bold text-white">{overduePaymentsCount}</p>
               </div>
               <AlertTriangle className="h-8 w-8 text-red-500" />
             </div>
@@ -272,124 +304,93 @@ export default function RentPage() {
           <div className="bg-green-900/20 border border-green-700 rounded-lg p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-300">ชำระแล้วเดือนนี้</p>
-                <p className="text-2xl font-bold text-white">{paidPayments.length}</p>
+                <p className="text-sm font-medium text-green-300">ชำระแล้ว</p>
+                <p className="text-2xl font-bold text-white">{paidPaymentsCount}</p>
               </div>
               <Check className="h-8 w-8 text-green-500" />
             </div>
           </div>
         </div>
 
+        {/* Filters */}
+        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+          <div className="flex items-center space-x-4">
+            <Filter className="h-5 w-5 text-gray-400" />
+            <div>
+              <label className="text-sm font-medium text-gray-300 mr-2">คอนโด:</label>
+              <select
+                value={selectedCondoFilter}
+                onChange={(e) => setSelectedCondoFilter(e.target.value)}
+                className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">ทั้งหมด</option>
+                {condos.map((condo) => (
+                  <option key={condo.id} value={condo.id}>
+                    {condo.name} ({condo.room_number})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-300 mr-2">สถานะ:</label>
+              <select
+                value={paymentStatusFilter}
+                onChange={(e) => setPaymentStatusFilter(e.target.value as "all" | "unpaid" | "paid" | "overdue")}
+                className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="all">ทั้งหมด</option>
+                <option value="unpaid">ยังไม่ชำระ</option>
+                <option value="overdue">เกินกำหนด</option>
+                <option value="paid">ชำระแล้ว</option>
+              </select>
+            </div>
+            <span className="text-sm text-gray-400">พบ {filteredPayments.length} รายการ</span>
+          </div>
+        </div>
+
         {/* Payments Table */}
         <DataTable
-          data={payments}
+          data={filteredPayments}
           columns={columns}
           loading={loading}
           emptyMessage="ไม่พบรายการชำระค่าเช่า"
           itemsPerPage={10}
         />
 
-        {/* Payment Details Modal */}
+        {/* Create/Edit Payment Modal */}
         <Modal
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false)
-            setSelectedPayment(null)
-          }}
-          title="รายละเอียดการชำระเงิน"
-          size="md"
-        >
-          {selectedPayment && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">ผู้เช่า</label>
-                  <p className="text-white">
-                    {mockTenants.find((t) => t.id === selectedPayment.tenant_id)?.full_name || "ไม่ทราบ"}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">จำนวนเงิน</label>
-                  <p className="text-white">฿{selectedPayment.amount.toLocaleString()}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">วันครบกำหนด</label>
-                  <p className="text-white">{new Date(selectedPayment.due_date).toLocaleDateString("th-TH")}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">สถานะ</label>
-                  <span
-                    className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedPayment.status)}`}
-                  >
-                    {getStatusIcon(selectedPayment.status)}
-                    <span className="ml-1">{getStatusText(selectedPayment.status)}</span>
-                  </span>
-                </div>
-              </div>
-
-              {selectedPayment.paid_date && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">วันที่ชำระ</label>
-                  <p className="text-white">{new Date(selectedPayment.paid_date).toLocaleDateString("th-TH")}</p>
-                </div>
-              )}
-
-              {selectedPayment.notes && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">หมายเหตุ</label>
-                  <p className="text-white">{selectedPayment.notes}</p>
-                </div>
-              )}
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  onClick={() => {
-                    setIsModalOpen(false)
-                    setSelectedPayment(null)
-                  }}
-                  className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
-                >
-                  ปิด
-                </button>
-              </div>
-            </div>
-          )}
-        </Modal>
-
-        {/* Create Payment Record Modal */}
-        <Modal
-          isOpen={isCreatePaymentModalOpen}
+          isOpen={isCreatePaymentModalOpen || isEditPaymentModalOpen}
           onClose={() => {
             setIsCreatePaymentModalOpen(false)
-            setCreateFormData({
-              tenant_id: "",
-              due_date: "",
-              month_number: "",
-              notes: "",
-            })
+            setIsEditPaymentModalOpen(false)
+            setSelectedPayment(null)
+            setUploadedFiles([])
           }}
-          title="สร้างรายการชำระเงิน"
-          size="md"
+          title={selectedPayment ? "แก้ไขรายการชำระเงิน" : "สร้างรายการชำระเงิน"}
+          size="lg"
         >
-          <form onSubmit={handleCreatePayment} className="space-y-4">
+          <form onSubmit={handleSavePayment} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">ผู้เช่า *</label>
               <select
                 required
-                value={createFormData.tenant_id}
+                value={formData.tenant_id}
                 onChange={(e) => {
-                  setCreateFormData({ ...createFormData, tenant_id: e.target.value })
+                  const selectedTenant = tenants.find((t) => t.id === e.target.value)
+                  setFormData({
+                    ...formData,
+                    tenant_id: e.target.value,
+                    amount: selectedTenant?.monthly_rent.toString() || "", // Auto-fill amount
+                  })
                 }}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                disabled={!!selectedPayment} // Disable tenant selection when editing
               >
                 <option value="">เลือกผู้เช่า</option>
-                {mockTenants
-                  .filter((t) => t.is_active)
+                {tenants // ใช้ tenants จาก useTenantsDB
+                  .filter((t) => t.is_active || t.id === formData.tenant_id) // Include current tenant if inactive
                   .map((tenant) => {
-                    const condo = mockCondos.find((c) => c.id === tenant.condo_id)
+                    const condo = condos.find((c) => c.id === tenant.condo_id)
                     return (
                       <option key={tenant.id} value={tenant.id}>
                         {tenant.full_name} - {condo?.name} ({condo?.room_number}) - ฿
@@ -398,150 +399,65 @@ export default function RentPage() {
                     )
                   })}
               </select>
-              {createFormData.tenant_id && (
-                <div className="mt-2 p-2 bg-gray-700 rounded text-sm">
-                  <span className="text-gray-300">ค่าเช่าต่อเดือน: </span>
-                  <span className="text-white font-medium">
-                    ฿{mockTenants.find((t) => t.id === createFormData.tenant_id)?.monthly_rent.toLocaleString()}
-                  </span>
-                </div>
-              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">วันครบกำหนด *</label>
-                <input
-                  type="date"
-                  required
-                  value={createFormData.due_date}
-                  onChange={(e) => setCreateFormData({ ...createFormData, due_date: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">เดือนที่</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={createFormData.month_number}
-                  onChange={(e) => setCreateFormData({ ...createFormData, month_number: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="เช่น 1, 2, 3..."
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">หมายเหตุ</label>
-              <textarea
-                value={createFormData.notes}
-                onChange={(e) => setCreateFormData({ ...createFormData, notes: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                rows={3}
-                placeholder="หมายเหตุเพิ่มเติม..."
-              />
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCreatePaymentModalOpen(false)
-                  setCreateFormData({
-                    tenant_id: "",
-                    due_date: "",
-                    month_number: "",
-                    notes: "",
-                  })
-                }}
-                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                สร้างรายการ
-              </button>
-            </div>
-          </form>
-        </Modal>
-
-        {/* Record Payment Modal */}
-        <Modal
-          isOpen={isRecordPaymentModalOpen}
-          onClose={() => {
-            setIsRecordPaymentModalOpen(false)
-            setSelectedPayment(null)
-            setRecordFormData({
-              amount: "",
-              payment_date: "",
-              month_number: "",
-              notes: "",
-            })
-            setUploadedFiles([])
-          }}
-          title="บันทึกการชำระเงิน"
-          size="lg"
-        >
-          <form onSubmit={handleSubmitPayment} className="space-y-4">
-            {selectedPayment && (
-              <div className="bg-gray-700 rounded-lg p-4 mb-4">
-                <h4 className="text-white font-medium mb-2">ข้อมูลรายการ</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-300">ผู้เช่า: </span>
-                    <span className="text-white">
-                      {mockTenants.find((t) => t.id === selectedPayment.tenant_id)?.full_name}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-300">วันครบกำหนด: </span>
-                    <span className="text-white">{new Date(selectedPayment.due_date).toLocaleDateString("th-TH")}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">จำนวนเงิน (บาท) </label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">จำนวนเงิน (บาท) *</label>
                 <input
                   type="number"
                   step="0.01"
-                  value={recordFormData.amount}
-                  onChange={(e) => setRecordFormData({ ...recordFormData, amount: e.target.value })}
+                  required
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder="0.00"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">วันที่ชำระ </label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">วันครบกำหนด *</label>
                 <input
                   type="date"
-                  value={recordFormData.payment_date}
-                  onChange={(e) => setRecordFormData({ ...recordFormData, payment_date: e.target.value })}
+                  required
+                  value={formData.due_date}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">สถานะ *</label>
+                <select
+                  required
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData({ ...formData, status: e.target.value as "unpaid" | "paid" | "overdue" })
+                  }
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="unpaid">ยังไม่ชำระ</option>
+                  <option value="paid">ชำระแล้ว</option>
+                  <option value="overdue">เกินกำหนด</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  วันที่ชำระ {formData.status === "paid" && "*"}
+                </label>
+                <input
+                  type="date"
+                  value={formData.paid_date}
+                  onChange={(e) => setFormData({ ...formData, paid_date: e.target.value })}
+                  required={formData.status === "paid"}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">เดือนที่</label>
-              <input
-                type="number"
-                min="1"
-                value={recordFormData.month_number}
-                onChange={(e) => setRecordFormData({ ...recordFormData, month_number: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                placeholder="เช่น 1, 2, 3..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">แนบรูปภาพการจ่าย </label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">แนบรูปภาพการจ่าย</label>
               <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center">
                 <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-400 mb-2">ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
@@ -566,8 +482,8 @@ export default function RentPage() {
 
             {uploadedFiles.length > 0 && (
               <div>
-                <h4 className="text-sm font-medium text-gray-300 mb-2">ไฟล์ที่เลือก:</h4>
-                <div className="space-y-2">
+                <h4 className="text-sm font-medium text-gray-300 mb-2">ไฟล์ที่เลือก ({uploadedFiles.length} ไฟล์):</h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
                   {uploadedFiles.map((file, index) => (
                     <div key={index} className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
                       <div className="flex items-center">
@@ -591,8 +507,8 @@ export default function RentPage() {
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">หมายเหตุ</label>
               <textarea
-                value={recordFormData.notes}
-                onChange={(e) => setRecordFormData({ ...recordFormData, notes: e.target.value })}
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                 rows={3}
                 placeholder="หมายเหตุเพิ่มเติม..."
@@ -603,14 +519,9 @@ export default function RentPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setIsRecordPaymentModalOpen(false)
+                  setIsCreatePaymentModalOpen(false)
+                  setIsEditPaymentModalOpen(false)
                   setSelectedPayment(null)
-                  setRecordFormData({
-                    amount: "",
-                    payment_date: "",
-                    month_number: "",
-                    notes: "",
-                  })
                   setUploadedFiles([])
                 }}
                 className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
@@ -619,9 +530,10 @@ export default function RentPage() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isUploading}
               >
-                บันทึกการชำระ
+                {isUploading ? "กำลังอัปโหลด..." : selectedPayment ? "อัพเดทรายการ" : "สร้างรายการ"}
               </button>
             </div>
           </form>

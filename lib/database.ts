@@ -1,5 +1,5 @@
 import { supabase, supabaseAdmin } from "./supabase"
-import type { User, Condo, Tenant, RentPayment, IncomeRecord, ExpenseRecord, TenantHistory } from "./supabase"
+import type { User, Condo, Tenant, RentPayment, IncomeRecord, ExpenseRecord, TenantHistory, Document } from "./supabase"
 
 // User functions
 export const userService = {
@@ -336,5 +336,29 @@ export const tenantHistoryService = {
       .single()
 
     return error ? null : data
+  },
+}
+
+export const documentService = {
+  async getByCondoId(condoId: string): Promise<Document[]> {
+    const { data, error } = await supabase
+      .from("documents")
+      .select("*")
+      .eq("condo_id", condoId)
+      .order("created_at", { ascending: false })
+
+    return error ? [] : data
+  },
+
+  async create(documentData: Omit<Document, "id" | "created_at">): Promise<Document | null> {
+    const { data, error } = await supabase.from("documents").insert([documentData]).select().single()
+
+    return error ? null : data
+  },
+
+  async delete(id: string): Promise<boolean> {
+    const { error } = await supabase.from("documents").delete().eq("id", id)
+
+    return !error
   },
 }

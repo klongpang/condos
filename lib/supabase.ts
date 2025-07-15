@@ -44,6 +44,7 @@ export interface Condo {
   seller?: string
   is_active: boolean
   created_at: string
+  tenants?: Tenant[] 
 }
 
 export interface Tenant {

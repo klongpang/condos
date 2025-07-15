@@ -4,5 +4,13 @@
 *.js text eol=lf
 *.json text eol=lf
 
-# ถ้ามี shell script หรือไฟล์อื่น เพิ่มได้
+* text=auto
+
+# สำหรับไฟล์ SQL ก็อาจบังคับ LF
+*.sql text eol=lf
+
 *.sh text eol=lf
+* text=auto eol=lf
+
+# ถ้าอยากให้ทุกไฟล์ใช้ LF
+* text=auto eol=lf
