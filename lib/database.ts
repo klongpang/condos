@@ -42,7 +42,6 @@ export const condoService = {
       .from("condos")
       .select("*")
       .eq("user_id", userId)
-      .eq("is_active", true)
       .order("created_at", { ascending: false })
 
     return error ? [] : data
@@ -345,6 +344,17 @@ export const documentService = {
       .from("documents")
       .select("*")
       .eq("condo_id", condoId)
+      .order("created_at", { ascending: false })
+
+    return error ? [] : data
+  },
+
+   async getByTenantId(tenantId: string): Promise<Document[]> {
+    // New method
+    const { data, error } = await supabase
+      .from("documents")
+      .select("*")
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
 
     return error ? [] : data

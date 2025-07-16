@@ -2,14 +2,14 @@
 
 import type React from "react"
 import { useState, useMemo } from "react"
-import { Plus, Check, AlertTriangle, Clock, Upload, File, X, Filter, Edit } from "lucide-react"
+import { Plus, Check, AlertTriangle, Clock, Upload, File, X, Filter, Edit, Eye } from "lucide-react"
 import { MainLayout } from "@/components/layout/main-layout"
 import { DataTable } from "@/components/ui/data-table"
 import { Modal } from "@/components/ui/modal"
-import { useRentPaymentsDB, useCondosDB, useTenantsDB } from "@/lib/hooks/use-database"
+import { useRentPaymentsDB, useCondosDB, useTenantsDB, useDocumentsDB } from "@/lib/hooks/use-database" // Import useDocumentsDB
 import { useAuth } from "@/lib/auth-context"
 import type { RentPayment } from "@/lib/supabase"
-import { uploadDocument } from "@/app/actions/document-actions" // Import Server Actions
+import { uploadDocument, deleteDocumentAction } from "@/app/actions/document-actions" // Import Server Actions
 
 export default function RentPage() {
   const { user } = useAuth()
@@ -21,6 +21,13 @@ export default function RentPage() {
   const [selectedPayment, setSelectedPayment] = useState<RentPayment | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
+
+  // Document states for payment receipts
+  const {
+    documents: paymentDocuments, // Rename to avoid conflict
+    loading: paymentDocumentsLoading,
+    refetch: refetchPaymentDocuments,
+  } = useDocumentsDB(selectedPayment?.tenant?.condo_id) // Fetch documents related to the condo of the selected payment's tenant
 
   // Filter states
   const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>("")
@@ -73,6 +80,7 @@ export default function RentPage() {
     })
     setUploadedFiles([]) // Clear files for edit, user will re-upload if needed
     setIsEditPaymentModalOpen(true)
+    refetchPaymentDocuments() // Refetch documents for the selected payment's condo
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,10 +131,9 @@ export default function RentPage() {
           for (const file of uploadedFiles) {
             const uploadFormData = new FormData()
             uploadFormData.append("file", file)
-            uploadFormData.append("condoId", savedPayment.tenant?.condo_id || "") // Link to condo of the tenant
+            // Link to condo of the tenant for this payment
+            uploadFormData.append("condoId", savedPayment.tenant?.condo_id || "")
             uploadFormData.append("documentType", "payment_receipt") // Specific document type for payment receipts
-            // Optionally, you could add a recordId if the documents table supported it directly
-            // uploadFormData.append("recordId", savedPayment.id);
 
             const result = await uploadDocument(uploadFormData)
             if (!result.success) {
@@ -149,6 +156,22 @@ export default function RentPage() {
       setIsEditPaymentModalOpen(false)
       setSelectedPayment(null)
       setUploadedFiles([])
+    }
+  }
+
+  const handleDocumentDelete = async (docId: string, fileUrl: string, docName: string) => {
+    if (window.confirm(`คุณต้องการลบเอกสาร "${docName}" หรือไม่?`)) {
+      try {
+        const result = await deleteDocumentAction(docId, fileUrl)
+        if (!result.success) {
+          throw new Error(result.message)
+        }
+        alert(`เอกสาร "${docName}" ถูกลบแล้ว`)
+        refetchPaymentDocuments() // Refetch documents after successful deletion
+      } catch (error: any) {
+        console.error("Error deleting document:", error)
+        alert(`เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`)
+      }
     }
   }
 
@@ -498,6 +521,48 @@ export default function RentPage() {
                       >
                         <X className="h-4 w-4" />
                       </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {selectedPayment && paymentDocuments.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-300 mb-2">
+                  เอกสารที่แนบสำหรับคอนโดนี้ ({paymentDocuments.length} ไฟล์):
+                </h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {paymentDocuments.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
+                      <div className="flex items-center flex-1 min-w-0">
+                        <File className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <span className="text-sm text-white truncate block">{doc.name}</span>
+                          <span className="text-xs text-gray-400">{doc.document_type || "ไม่ระบุประเภท"}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
+                        {doc.file_url && (
+                          <a
+                            href={doc.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300"
+                            title="ดู/ดาวน์โหลด"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDocumentDelete(doc.id, doc.file_url || "", doc.name)} // Need a delete function for payment documents
+                          className="text-red-400 hover:text-red-300"
+                          title="ลบเอกสาร"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

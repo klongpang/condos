@@ -2,18 +2,19 @@
 
 import type React from "react"
 import { useState } from "react"
-import { Plus, Edit, Phone, MessageCircle, UserX, Filter } from "lucide-react"
+import { Plus, Edit, Phone, MessageCircle, UserX, Filter, FileText, Upload, File, X, Eye } from "lucide-react"
 import { MainLayout } from "@/components/layout/main-layout"
 import { DataTable } from "@/components/ui/data-table"
 import { Modal } from "@/components/ui/modal"
 import { useAuth } from "@/lib/auth-context"
 import type { Tenant } from "@/lib/supabase"
-import { useTenantsDB, useCondosDB } from "@/lib/hooks/use-database"
+import { useTenantsDB, useCondosDB, useDocumentsDB } from "@/lib/hooks/use-database"
 import { tenantHistoryService } from "@/lib/database"
+import { uploadDocument, deleteDocumentAction } from "@/app/actions/document-actions" // Import Server Actions
 
 export default function TenantsPage() {
   const { user } = useAuth()
-  const { tenants, loading, addTenant, updateTenant } = useTenantsDB()
+  const { tenants, loading, addTenant, updateTenant } = useTenantsDB(user?.id) // ดึงผู้เช่าที่เกี่ยวข้องกับ user
   const { condos } = useCondosDB(user?.id) // ดึงเฉพาะ condos ของ user นั้นๆ
   const [isEndContractModalOpen, setIsEndContractModalOpen] = useState(false)
   const [selectedTenantForEnd, setSelectedTenantForEnd] = useState<Tenant | null>(null)
@@ -41,11 +42,21 @@ export default function TenantsPage() {
     monthly_rent: "",
   })
 
-  // Filter tenants based on status and condo - เฉพาะ condos ของ user นั้นๆ
-  const userCondoIds = condos.map((c) => c.id)
-  const userTenants = tenants.filter((tenant) => userCondoIds.includes(tenant.condo_id))
+  // Document states for tenant
+  const [isTenantFileModalOpen, setIsTenantFileModalOpen] = useState(false) // New state for file modal
+  const [selectedTenantForFile, setSelectedTenantForFile] = useState<Tenant | null>(null) // New state for selected tenant for file upload
+  const {
+    documents: tenantDocuments, // Rename to avoid conflict
+    loading: tenantDocumentsLoading,
+    refetch: refetchTenantDocuments,
+  } = useDocumentsDB(undefined, selectedTenantForFile?.id) // Pass tenantId here
 
-  const filteredTenants = userTenants.filter((tenant) => {
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [documentType, setDocumentType] = useState<string>("")
+  const [isUploading, setIsUploading] = useState(false)
+
+  // Filter tenants based on status and condo - ใช้ tenants ที่ถูกกรองโดย useTenantsDB แล้ว
+  const filteredTenants = tenants.filter((tenant) => {
     const statusMatch =
       statusFilter === "all" ||
       (statusFilter === "active" && tenant.is_active) ||
@@ -141,7 +152,7 @@ export default function TenantsPage() {
         actual_end_date: endContractData.actual_end_date,
         deposit: selectedTenantForEnd.deposit,
         monthly_rent: selectedTenantForEnd.monthly_rent,
-        end_reason: endContractData.end_reason,
+        end_reason: endContractData.end_reason as any,
         notes: endContractData.notes,
       })
 
@@ -169,6 +180,84 @@ export default function TenantsPage() {
       alert("เกิดข้อผิดพลาดในการสิ้นสุดสัญญา")
     }
   }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    setUploadedFiles((prev) => [...prev, ...files])
+  }
+
+  const removeFile = (index: number) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const openTenantFileModal = (tenant: Tenant) => {
+    setSelectedTenantForFile(tenant)
+    setUploadedFiles([])
+    setDocumentType("")
+    setIsTenantFileModalOpen(true)
+    refetchTenantDocuments() // Refetch documents when opening modal
+  }
+
+  const handleTenantFileSubmit = async () => {
+    if (uploadedFiles.length === 0) {
+      alert("กรุณาเลือกไฟล์ที่ต้องการอัปโหลด")
+      return
+    }
+    if (!documentType) {
+      alert("กรุณาเลือกประเภทเอกสาร")
+      return
+    }
+    if (!selectedTenantForFile) return
+
+    setIsUploading(true)
+    try {
+      for (const file of uploadedFiles) {
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("tenantId", selectedTenantForFile.id) // Link to tenant_id
+        formData.append("condoId", selectedTenantForFile.condo_id) // Also link to condo_id for broader access
+        formData.append("documentType", documentType)
+
+        const result = await uploadDocument(formData)
+        if (!result.success) {
+          throw new Error(result.message)
+        }
+      }
+      alert(`อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`)
+      setUploadedFiles([])
+      setDocumentType("")
+      setIsTenantFileModalOpen(false)
+      refetchTenantDocuments() // Refetch documents after successful upload
+    } catch (error: any) {
+      console.error("Error uploading files:", error)
+      alert(`เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ${error.message}`)
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleTenantDocumentDelete = async (docId: string, fileUrl: string, docName: string) => {
+    if (window.confirm(`คุณต้องการลบเอกสาร "${docName}" หรือไม่?`)) {
+      try {
+        const result = await deleteDocumentAction(docId, fileUrl)
+        if (!result.success) {
+          throw new Error(result.message)
+        }
+        alert(`เอกสาร "${docName}" ถูกลบแล้ว`)
+        refetchTenantDocuments() // Refetch documents after successful deletion
+      } catch (error: any) {
+        console.error("Error deleting document:", error)
+        alert(`เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`)
+      }
+    }
+  }
+
+  const tenantDocumentTypes = [
+    { value: "id_card", label: "สำเนาบัตรประชาชน" },
+    { value: "rental_agreement", label: "สัญญาเช่า" },
+    { value: "bank_account", label: "สำเนาบัญชีธนาคาร" },
+    { value: "other", label: "อื่นๆ" },
+  ]
 
   const columns = [
     {
@@ -248,6 +337,13 @@ export default function TenantsPage() {
         <div className="flex space-x-2">
           <button onClick={() => handleEdit(tenant)} className="text-blue-400 hover:text-blue-300" title="แก้ไข">
             <Edit className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => openTenantFileModal(tenant)}
+            className="text-green-400 hover:text-green-300"
+            title="แนบไฟล์"
+          >
+            <FileText className="h-4 w-4" />
           </button>
           {tenant.is_active && (
             <button
@@ -522,6 +618,157 @@ export default function TenantsPage() {
               </button>
             </div>
           </form>
+        </Modal>
+
+        {/* File Upload Modal for Tenants */}
+        <Modal
+          isOpen={isTenantFileModalOpen}
+          onClose={() => {
+            setIsTenantFileModalOpen(false)
+            setSelectedTenantForFile(null)
+            setUploadedFiles([])
+            setDocumentType("")
+          }}
+          title={`แนบไฟล์ - ${selectedTenantForFile?.full_name}`}
+          size="lg"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">ประเภทเอกสาร *</label>
+              <select
+                required
+                value={documentType}
+                onChange={(e) => setDocumentType(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="">เลือกประเภทเอกสาร</option>
+                {tenantDocumentTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">เลือกไฟล์เอกสาร</label>
+              <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center">
+                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-400 mb-2">ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="tenant-file-upload"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                />
+                <label
+                  htmlFor="tenant-file-upload"
+                  className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg cursor-pointer transition-colors"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  เพิ่มไฟล์
+                </label>
+                <p className="text-xs text-gray-500 mt-2">รองรับไฟล์: PDF, DOC, DOCX, JPG, PNG, TXT</p>
+              </div>
+            </div>
+
+            {uploadedFiles.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-300 mb-2">ไฟล์ที่เลือก ({uploadedFiles.length} ไฟล์):</h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {uploadedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
+                      <div className="flex items-center flex-1 min-w-0">
+                        <File className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <span className="text-sm text-white truncate block">{file.name}</span>
+                          <span className="text-xs text-gray-400">
+                            {(file.size / 1024).toFixed(1)} KB • {file.type || "Unknown type"}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(index)}
+                        className="text-red-400 hover:text-red-300 ml-2 flex-shrink-0"
+                        title="ลบไฟล์"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {tenantDocuments.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-300 mb-2">เอกสารที่มีอยู่ ({tenantDocuments.length} ไฟล์):</h4>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {tenantDocuments.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
+                      <div className="flex items-center flex-1 min-w-0">
+                        <File className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <span className="text-sm text-white truncate block">{doc.name}</span>
+                          <span className="text-xs text-gray-400">
+                            {tenantDocumentTypes.find((t) => t.value === doc.document_type)?.label ||
+                              doc.document_type ||
+                              "ไม่ระบุประเภท"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
+                        {doc.file_url && (
+                          <a
+                            href={doc.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300"
+                            title="ดู/ดาวน์โหลด"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleTenantDocumentDelete(doc.id, doc.file_url || "", doc.name)}
+                          className="text-red-400 hover:text-red-300"
+                          title="ลบเอกสาร"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsTenantFileModalOpen(false)
+                  setSelectedTenantForFile(null)
+                  setUploadedFiles([])
+                  setDocumentType("")
+                }}
+                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleTenantFileSubmit}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={uploadedFiles.length === 0 || !documentType || isUploading}
+              >
+                {isUploading ? "กำลังอัปโหลด..." : `อัปโหลดไฟล์ (${uploadedFiles.length})`}
+              </button>
+            </div>
+          </div>
         </Modal>
       </div>
     </MainLayout>

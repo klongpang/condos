@@ -427,20 +427,25 @@ export function useTenantHistoryDB(userId?: string) {
 }
 
 // Custom hook for documents with real database
-export function useDocumentsDB(condoId?: string) {
+export function useDocumentsDB(condoId?: string, tenantId?: string) {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetchDocuments = async () => {
-    if (!condoId) {
+    if (!condoId && !tenantId) {
       setDocuments([])
       setLoading(false)
       return
     }
     try {
       setLoading(true)
-      const data = await documentService.getByCondoId(condoId)
+      let data: Document[] = []
+      if (condoId) {
+        data = await documentService.getByCondoId(condoId)
+      } else if (tenantId) {
+        data = await documentService.getByTenantId(tenantId)
+      }
       setDocuments(data)
       setError(null)
     } catch (err) {
@@ -453,7 +458,7 @@ export function useDocumentsDB(condoId?: string) {
 
   useEffect(() => {
     fetchDocuments()
-  }, [condoId])
+  }, [condoId, tenantId])
 
   const addDocument = async (documentData: Omit<Document, "id" | "created_at">) => {
     try {

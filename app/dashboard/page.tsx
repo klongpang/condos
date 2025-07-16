@@ -1,23 +1,29 @@
 "use client"
-import { Building2, Users, DollarSign, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react"
+import { Building2, Users, DollarSign, AlertTriangle, TrendingUp, TrendingDown, Check } from "lucide-react"
+import { BarChart } from "recharts";
+
 import { MainLayout } from "@/components/layout/main-layout"
 import { StatsCard } from "@/components/ui/stats-card"
 import { DataTable } from "@/components/ui/data-table"
 import { useAuth } from "@/lib/auth-context"
 import { useCondosDB, useTenantsDB, useRentPaymentsDB, useFinancialRecordsDB } from "@/lib/hooks/use-database"
+import { useMemo } from "react"
+import { Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 export default function DashboardPage() {
   const { user } = useAuth()
   const { condos, loading } = useCondosDB(user?.id)
-  const { tenants } = useTenantsDB()
-  const { payments } = useRentPaymentsDB()
-  const { incomeRecords, expenseRecords } = useFinancialRecordsDB()
+  const { tenants } = useTenantsDB(user?.id) // Ensure tenants are filtered by user
+  const { payments } = useRentPaymentsDB(user?.id) // Ensure payments are filtered by user
+  const { incomeRecords, expenseRecords } = useFinancialRecordsDB(user?.id) // Ensure financial records are filtered by user
 
   // Calculate stats
   const totalCondos = condos.length
   const totalTenants = tenants.filter((t) => t.is_active).length
   const vacantRooms = totalCondos - totalTenants
-  const unpaidRents = payments.filter((p) => p.status === "unpaid").length
+  const unpaidRents = payments.filter((p) => p.status === "unpaid" || p.status === "overdue").length
+  const paidRents = payments.filter((p) => p.status === "paid").length
 
   const totalIncome = incomeRecords.reduce((sum, record) => sum + record.amount, 0)
   const totalExpenses = expenseRecords.reduce((sum, record) => sum + record.amount, 0)
@@ -27,6 +33,49 @@ export default function DashboardPage() {
   const recentPayments = payments
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5)
+
+  const currentYear = new Date().getFullYear()
+  const monthlyFinancials = useMemo(() => {
+      const dataMap = new Map<string, { income: number; expense: number }>()
+
+      // Initialize map for current year
+      for (let i = 0; i < 12; i++) {
+        const monthKey = `${currentYear}-${(i + 1).toString().padStart(2, "0")}`
+        dataMap.set(monthKey, { income: 0, expense: 0 })
+      }
+
+      incomeRecords.forEach((record) => {
+        const recordDate = new Date(record.date)
+        if (recordDate.getFullYear() === currentYear) {
+          const monthKey = `${recordDate.getFullYear()}-${(recordDate.getMonth() + 1).toString().padStart(2, "0")}`
+          const current = dataMap.get(monthKey) || { income: 0, expense: 0 }
+          dataMap.set(monthKey, { ...current, income: current.income + record.amount })
+        }
+      })
+
+      expenseRecords.forEach((record) => {
+        const recordDate = new Date(record.date)
+        if (recordDate.getFullYear() === currentYear) {
+          const monthKey = `${recordDate.getFullYear()}-${(recordDate.getMonth() + 1).toString().padStart(2, "0")}`
+          const current = dataMap.get(monthKey) || { income: 0, expense: 0 }
+          dataMap.set(monthKey, { ...current, expense: current.expense + record.amount })
+        }
+      })
+
+      const sortedData = Array.from(dataMap.entries())
+        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+        .map(([key, value]) => {
+          const monthNum = Number.parseInt(key.split("-")[1])
+          const monthName = new Date(currentYear, monthNum - 1, 1).toLocaleDateString("th-TH", { month: "short" })
+          return {
+            month: monthName,
+            income: value.income,
+            expense: value.expense,
+          }
+        })
+      return sortedData
+    }, [incomeRecords, expenseRecords, currentYear])
+    
 
   const paymentColumns = [
     {
@@ -86,32 +135,65 @@ export default function DashboardPage() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatsCard title="คอนโดทั้งหมด" value={totalCondos} icon={Building2} trend={{ value: 12, isPositive: true }} />
-          <StatsCard title="ผู้เช่าปัจจุบัน" value={totalTenants} icon={Users} trend={{ value: 8, isPositive: true }} />
+          <StatsCard title="คอนโดทั้งหมด" value={totalCondos} icon={Building2} />
+          <StatsCard title="ผู้เช่าปัจจุบัน" value={totalTenants} icon={Users} />
           <StatsCard title="ห้องว่าง" value={vacantRooms} icon={AlertTriangle} />
           <StatsCard title="ค่าเช่าค้างชำระ" value={unpaidRents} icon={DollarSign} />
+          <StatsCard title="ค่าเช่าชำระแล้ว" value={paidRents} icon={Check} />
         </div>
 
         {/* Financial Overview */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <StatsCard
-            title="รายได้รวม"
-            value={`฿${totalIncome.toLocaleString()}`}
-            icon={TrendingUp}
-            trend={{ value: 15, isPositive: true }}
-          />
-          <StatsCard
-            title="ค่าใช้จ่ายรวม"
-            value={`฿${totalExpenses.toLocaleString()}`}
-            icon={TrendingDown}
-            trend={{ value: 5, isPositive: false }}
-          />
+          <StatsCard title="รายได้รวม" value={`฿${totalIncome.toLocaleString()}`} icon={TrendingUp} />
+          <StatsCard title="ค่าใช้จ่ายรวม" value={`฿${totalExpenses.toLocaleString()}`} icon={TrendingDown} />
           <StatsCard
             title="กำไรสุทธิ"
             value={`฿${netIncome.toLocaleString()}`}
             icon={DollarSign}
-            trend={{ value: 22, isPositive: true }}
+            trend={netIncome >= 0 ? { value: 0, isPositive: true } : { value: 0, isPositive: false }}
           />
+        </div>
+
+        {/* Monthly Income/Expense Chart */}
+        <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+          <h3 className="text-lg font-medium text-white mb-4">รายรับ-รายจ่ายรายเดือน ({currentYear + 543})</h3>
+          <ChartContainer
+            config={{
+              income: {
+                label: "รายรับ",
+                color: "hsl(var(--chart-1))", // Green
+              },
+              expense: {
+                label: "รายจ่าย",
+                color: "hsl(var(--chart-2))", // Red
+              },
+            }}
+            className="h-[300px] w-full"
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyFinancials} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" />
+                <XAxis
+                  dataKey="month"
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `฿${value.toLocaleString()}`}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Legend />
+                <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartContainer>
         </div>
 
         {/* Recent Activities */}

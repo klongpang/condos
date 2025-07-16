@@ -31,6 +31,7 @@ export default function FinancialsPage() {
   const [recordType, setRecordType] = useState<"income" | "expense">("income")
   const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>("") // Filter state for condo
   const [editingRecord, setEditingRecord] = useState<IncomeRecord | ExpenseRecord | null>(null)
+  
 
   // New filter states for year and month
   const currentYear = new Date().getFullYear()
