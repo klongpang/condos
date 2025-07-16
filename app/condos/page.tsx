@@ -7,10 +7,11 @@ import { MainLayout } from "@/components/layout/main-layout"
 import { DataTable } from "@/components/ui/data-table"
 import { Modal } from "@/components/ui/modal"
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"
+import { Notification } from "@/components/ui/notification" // Import Notification
 import { useAuth } from "@/lib/auth-context"
 import type { Condo } from "@/lib/supabase"
 import { useCondosDB, useDocumentsDB } from "@/lib/hooks/use-database"
-import { uploadDocument, deleteDocumentAction } from "@/app/actions/document-actions"
+import { uploadDocument, deleteDocumentAction } from "@/app/actions/document-actions" // Import Server Actions
 
 export default function CondosPage() {
   const { user } = useAuth()
@@ -20,10 +21,15 @@ export default function CondosPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [selectedCondo, setSelectedCondo] = useState<Condo | null>(null)
   const [editingCondo, setEditingCondo] = useState<Condo | null>(null)
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+
+  // Document states
   const { documents, loading: documentsLoading, refetch: refetchDocuments } = useDocumentsDB(selectedCondo?.id) // Use refetch
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [documentType, setDocumentType] = useState<string>("")
   const [isUploading, setIsUploading] = useState(false)
+
+  // Notification state
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
 
   const [formData, setFormData] = useState({
     name: "",
@@ -48,13 +54,15 @@ export default function CondosPage() {
     try {
       if (editingCondo) {
         await updateCondo(editingCondo.id, condoData)
+        setNotification({ message: "อัพเดทข้อมูลคอนโดสำเร็จ", type: "success" })
       } else {
         await addCondo(condoData)
+        setNotification({ message: "เพิ่มคอนโดใหม่สำเร็จ", type: "success" })
       }
       resetForm()
     } catch (error) {
       console.error("Error saving condo:", error)
-      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูลคอนโด")
+      setNotification({ message: "เกิดข้อผิดพลาดในการบันทึกข้อมูลคอนโด", type: "error" })
     }
   }
 
@@ -95,10 +103,10 @@ export default function CondosPage() {
     if (selectedCondo) {
       try {
         await updateCondo(selectedCondo.id, { is_active: false })
-        alert(`คอนโด "${selectedCondo.name}" ถูกปิดใช้งานแล้ว`)
+        setNotification({ message: `คอนโด "${selectedCondo.name}" ถูกปิดใช้งานแล้ว`, type: "success" })
       } catch (error) {
         console.error("Error deactivating condo:", error)
-        alert("เกิดข้อผิดพลาดในการปิดใช้งานคอนโด")
+        setNotification({ message: "เกิดข้อผิดพลาดในการปิดใช้งานคอนโด", type: "error" })
       } finally {
         setSelectedCondo(null)
         setIsDeleteModalOpen(false)
@@ -120,61 +128,61 @@ export default function CondosPage() {
     setUploadedFiles([])
     setDocumentType("")
     setIsFileModalOpen(true)
-    refetchDocuments()
+    refetchDocuments() // Refetch documents when opening modal
   }
 
   const handleFileSubmit = async () => {
     if (uploadedFiles.length === 0) {
-      alert("กรุณาเลือกไฟล์ที่ต้องการอัปโหลด")
+      setNotification({ message: "กรุณาเลือกไฟล์ที่ต้องการอัปโหลด", type: "error" })
       return
     }
     if (!documentType) {
-      alert("กรุณาเลือกประเภทเอกสาร")
+      setNotification({ message: "กรุณาเลือกประเภทเอกสาร", type: "error" })
       return
     }
     if (!selectedCondo) return
 
     setIsUploading(true)
+    try {
+      for (const file of uploadedFiles) {
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("condoId", selectedCondo.id)
+        formData.append("documentType", documentType)
 
-        try {
-          for (const file of uploadedFiles) { 
-          const formData = new FormData()
-          formData.append("file", file)
-          formData.append("condoId", selectedCondo.id)
-          formData.append("documentType", documentType)
-
-          const result = await uploadDocument(formData)
-          if (!result.success) {
-            throw new Error(result.message)
-          }
-        }
-          alert(`อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`)
-          setUploadedFiles([])
-          setDocumentType("")
-          setIsFileModalOpen(false)
-          refetchDocuments()
-        } catch (error: any) {
-          console.error("Error uploading files:", error)
-          alert(`เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ${error.message}`)
-        } finally {
-          setIsUploading(false)
+        const result = await uploadDocument(formData)
+        if (!result.success) {
+          throw new Error(result.message)
         }
       }
-      const handleDocumentDelete = async (docId: string, fileUrl: string, docName: string) => {
-        if (window.confirm(`คุณต้องการลบเอกสาร "${docName}" หรือไม่?`)) {
-          try {
-            const result = await deleteDocumentAction(docId, fileUrl)
-            if (!result.success) {
-              throw new Error(result.message)
-            }
-            alert(`เอกสาร "${docName}" ถูกลบแล้ว`)
-            refetchDocuments() // Refetch documents after successful deletion
-          } catch (error: any) {
-            console.error("Error deleting document:", error)
-            alert(`เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`)
-          }
+      setNotification({ message: `อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`, type: "success" })
+      setUploadedFiles([])
+      setDocumentType("")
+      setIsFileModalOpen(false)
+      refetchDocuments() // Refetch documents after successful upload
+    } catch (error: any) {
+      console.error("Error uploading files:", error)
+      setNotification({ message: `เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ${error.message}`, type: "error" })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleDocumentDelete = async (docId: string, fileUrl: string, docName: string) => {
+    if (window.confirm(`คุณต้องการลบเอกสาร "${docName}" หรือไม่?`)) {
+      try {
+        const result = await deleteDocumentAction(docId, fileUrl)
+        if (!result.success) {
+          throw new Error(result.message)
         }
+        setNotification({ message: `เอกสาร "${docName}" ถูกลบแล้ว`, type: "success" })
+        refetchDocuments() // Refetch documents after successful deletion
+      } catch (error: any) {
+        console.error("Error deleting document:", error)
+        setNotification({ message: `เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`, type: "error" })
       }
+    }
+  }
 
   const columns = [
     {
@@ -216,9 +224,9 @@ export default function CondosPage() {
           <button onClick={() => openFileModal(condo)} className="text-green-400 hover:text-green-300" title="แนบไฟล์">
             <FileText className="h-4 w-4" />
           </button>
-          {/* <button onClick={() => handleDelete(condo)} className="text-red-400 hover:text-red-300" title="ปิดใช้งาน">
+          <button onClick={() => handleDelete(condo)} className="text-red-400 hover:text-red-300" title="ปิดใช้งาน">
             <X className="h-4 w-4" />
-          </button> */}
+          </button>
         </div>
       ),
     },
@@ -235,6 +243,11 @@ export default function CondosPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        {/* Notification */}
+        {notification && (
+          <Notification message={notification.message} type={notification.type} onClose={() => setNotification(null)} />
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -360,8 +373,8 @@ export default function CondosPage() {
           onClose={() => {
             setIsFileModalOpen(false)
             setSelectedCondo(null)
-            setDocumentType("")
             setUploadedFiles([])
+            setDocumentType("")
           }}
           title={`แนบไฟล์ - ${selectedCondo?.name}`}
           size="lg"
@@ -383,6 +396,7 @@ export default function CondosPage() {
                 ))}
               </select>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">เลือกไฟล์เอกสาร</label>
               <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center">
@@ -486,8 +500,8 @@ export default function CondosPage() {
                 onClick={() => {
                   setIsFileModalOpen(false)
                   setSelectedCondo(null)
-                  setDocumentType("")
                   setUploadedFiles([])
+                  setDocumentType("")
                 }}
                 className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
               >

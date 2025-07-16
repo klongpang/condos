@@ -5,6 +5,7 @@ import { useState, useMemo } from "react"
 import { Plus, TrendingUp, TrendingDown, DollarSign, Filter, Edit, FileText, X, Eye, Upload, File } from "lucide-react"
 import { MainLayout } from "@/components/layout/main-layout"
 import { DataTable } from "@/components/ui/data-table"
+import { Notification } from "@/components/ui/notification" 
 import { StatsCard } from "@/components/ui/stats-card"
 import { Modal } from "@/components/ui/modal"
 import { ConfirmationModal } from "@/components/ui/confirmation-modal" // Import ConfirmationModal
@@ -37,7 +38,7 @@ export default function FinancialsPage() {
   const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState<string>(currentYear.toString())
   const [selectedMonth, setSelectedMonth] = useState<string>("")
-
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
   // Document states (for financial records - though schema limitation exists)
   const [isFileModalOpen, setIsFileModalOpen] = useState(false)
   const [selectedFinancialRecordForFile, setSelectedFinancialRecordForFile] = useState<
@@ -525,6 +526,7 @@ export default function FinancialsPage() {
             columns={incomeColumns}
             loading={loading}
             emptyMessage="ไม่พบรายการรายรับ"
+            itemsPerPage={5}
           />
         </div>
 
@@ -539,6 +541,7 @@ export default function FinancialsPage() {
             columns={expenseColumns}
             loading={loading}
             emptyMessage="ไม่พบรายการรายจ่าย"
+            itemsPerPage={5}
           />
         </div>
 
