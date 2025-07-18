@@ -207,6 +207,25 @@ export const rentPaymentService = {
 
     await supabase.from("rent_payments").update({ status: "overdue" }).eq("status", "unpaid").lt("due_date", today)
   },
+
+   async delete(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('rent_payments')
+        .delete()
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Error deleting payment:', error)
+        return false
+      }
+      
+      return true
+    } catch (err) {
+      console.error('Error deleting payment:', err)
+      return false
+    }
+  }
 }
 
 // Income Record functions

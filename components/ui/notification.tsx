@@ -10,7 +10,7 @@ interface NotificationProps {
   duration?: number // Optional: how long the notification stays visible in ms
 }
 
-export function Notification({ message, type, onClose, duration = 5000 }: NotificationProps) {
+export function Notification({ message, type, onClose, duration = 3000 }: NotificationProps) {
   const [isVisible, setIsVisible] = useState(true)
 
   useEffect(() => {
@@ -25,14 +25,14 @@ export function Notification({ message, type, onClose, duration = 5000 }: Notifi
 
   if (!isVisible) return null
 
-  const bgColor = type === "success" ? "bg-green-800" : "bg-red-800"
-  const borderColor = type === "success" ? "border-green-600" : "border-red-600"
-  const textColor = type === "success" ? "text-green-100" : "text-red-100"
+  const bgColor = type === "success" ? "bg-gradient-to-br from-emerald-500 to-green-600" : "bg-gradient-to-br from-rose-500 to-red-600"
+  const borderColor = type === "success" ? "border-emerald-400/30" : "border-rose-400/30"
+  const textColor = type === "success" ? "text-white" : "text-white"  
   const icon = type === "success" ? <CheckCircle className="h-5 w-5" /> : <XCircle className="h-5 w-5" />
 
   return (
     <div
-      className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg flex items-center space-x-3 z-50 border ${bgColor} ${borderColor} ${textColor}`}
+      className={`fixed bottom-20 right-10 px-4 py-2 p-4 rounded-lg shadow-lg flex items-center space-x-3 z-50 border ${bgColor} ${borderColor} ${textColor}`}
       role="alert"
     >
       {icon}

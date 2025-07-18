@@ -2,10 +2,14 @@
 
 import type React from "react"
 import { useState, useMemo } from "react"
-import { Plus, Check, AlertTriangle, Clock, Upload, File, X, Filter, Edit, Eye } from "lucide-react"
+// Import Trash icon
+import { Plus, Check, AlertTriangle, Clock, Upload, File, X, Filter, Edit, Eye, Trash } from "lucide-react"
 import { MainLayout } from "@/components/layout/main-layout"
 import { DataTable } from "@/components/ui/data-table"
 import { Modal } from "@/components/ui/modal"
+import { Notification } from "@/components/ui/notification" // Import Notification
+// Import ConfirmationModal
+import { ConfirmationModal } from "@/components/ui/confirmation-modal"
 import { useRentPaymentsDB, useCondosDB, useTenantsDB, useDocumentsDB } from "@/lib/hooks/use-database" // Import useDocumentsDB
 import { useAuth } from "@/lib/auth-context"
 import type { RentPayment } from "@/lib/supabase"
@@ -13,7 +17,14 @@ import { uploadDocument, deleteDocumentAction } from "@/app/actions/document-act
 
 export default function RentPage() {
   const { user } = useAuth()
-  const { payments, loading, addPayment, updatePayment, refetch: refetchPayments } = useRentPaymentsDB(user?.id)
+  const {
+    payments,
+    loading,
+    addPayment,
+    updatePayment,
+    deletePayment,
+    refetch: refetchPayments,
+  } = useRentPaymentsDB(user?.id)
   const { condos } = useCondosDB(user?.id)
   const { tenants } = useTenantsDB(user?.id)
   const [isCreatePaymentModalOpen, setIsCreatePaymentModalOpen] = useState(false)
@@ -33,6 +44,9 @@ export default function RentPage() {
   const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>("")
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<"all" | "unpaid" | "paid" | "overdue">("all")
 
+  // Notification state
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
+
   // Form data for creating/editing payment record
   const [formData, setFormData] = useState({
     tenant_id: "",
@@ -42,6 +56,37 @@ export default function RentPage() {
     status: "unpaid" as "unpaid" | "paid" | "overdue",
     notes: "",
   })
+
+  // Add new states for delete functionality
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [paymentToDelete, setPaymentToDelete] = useState<RentPayment | null>(null)
+
+  // Add handleDeleteClick function
+  const handleDeleteClick = (payment: RentPayment) => {
+    setPaymentToDelete(payment)
+    setIsDeleteModalOpen(true)
+  }
+
+  // Add confirmDelete function
+  const confirmDelete = async () => {
+    if (paymentToDelete) {
+      try {
+        const success = await deletePayment(paymentToDelete.id)
+        if (success) {
+          setNotification({ message: "ลบรายการชำระเงินสำเร็จ", type: "success" })
+          refetchPayments() // Refetch data after deletion
+        } else {
+          setNotification({ message: "เกิดข้อผิดพลาดในการลบรายการชำระเงิน", type: "error" })
+        }
+      } catch (error: any) {
+        console.error("Error deleting payment:", error)
+        setNotification({ message: `เกิดข้อผิดพลาดในการลบรายการชำระเงิน: ${error.message}`, type: "error" })
+      } finally {
+        setIsDeleteModalOpen(false)
+        setPaymentToDelete(null)
+      }
+    }
+  }
 
   // Filter payments based on selected condo and status
   const filteredPayments = useMemo(() => {
@@ -71,6 +116,7 @@ export default function RentPage() {
   const handleOpenEditModal = (payment: RentPayment) => {
     setSelectedPayment(payment)
     setFormData({
+      ...formData,
       tenant_id: payment.tenant_id,
       amount: payment.amount.toString(),
       due_date: payment.due_date,
@@ -96,12 +142,12 @@ export default function RentPage() {
     e.preventDefault()
 
     if (!formData.tenant_id || !formData.due_date || !formData.amount) {
-      alert("กรุณากรอกข้อมูลที่จำเป็น: ผู้เช่า, จำนวนเงิน, และวันครบกำหนด")
+      setNotification({ message: "กรุณากรอกข้อมูลที่จำเป็น: ผู้เช่า, จำนวนเงิน, และวันครบกำหนด", type: "error" })
       return
     }
 
     if (formData.status === "paid" && !formData.paid_date) {
-      alert("กรุณากรอกวันที่ชำระ หากสถานะเป็น 'ชำระแล้ว'")
+      setNotification({ message: "กรุณากรอกวันที่ชำระ หากสถานะเป็น 'ชำระแล้ว'", type: "error" })
       return
     }
 
@@ -140,16 +186,16 @@ export default function RentPage() {
               throw new Error(result.message)
             }
           }
-          alert(`อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`)
+          setNotification({ message: `บันทึกสำเร็จ ${uploadedFiles.length} ไฟล์`, type: "success" })
         }
-        alert(`บันทึกรายการชำระเงินสำเร็จ`)
+        setNotification({ message: `บันทึกสำเร็จ`, type: "success" })
         refetchPayments() // Refresh data after save
       } else {
-        alert("เกิดข้อผิดพลาดในการบันทึกรายการชำระเงิน")
+        setNotification({ message: "เกิดข้อผิดพลาดในการบันทึกรายการชำระเงิน", type: "error" })
       }
     } catch (error: any) {
       console.error("Error saving payment record:", error)
-      alert(`เกิดข้อผิดพลาดในการบันทึกรายการชำระเงิน: ${error.message}`)
+      setNotification({ message: `เกิดข้อผิดพลาดในการบันทึกรายการชำระเงิน: ${error.message}`, type: "error" })
     } finally {
       setIsUploading(false)
       setIsCreatePaymentModalOpen(false)
@@ -166,11 +212,11 @@ export default function RentPage() {
         if (!result.success) {
           throw new Error(result.message)
         }
-        alert(`เอกสาร "${docName}" ถูกลบแล้ว`)
+        setNotification({ message: `เอกสาร "${docName}" ถูกลบแล้ว`, type: "success" })
         refetchPaymentDocuments() // Refetch documents after successful deletion
       } catch (error: any) {
         console.error("Error deleting document:", error)
-        alert(`เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`)
+        setNotification({ message: `เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`, type: "error" })
       }
     }
   }
@@ -274,6 +320,15 @@ export default function RentPage() {
             <Edit className="h-4 w-4 mr-1" />
             แก้ไข
           </button>
+          {/* Add Delete Button */}
+          <button
+            onClick={() => handleDeleteClick(payment)}
+            className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+            title="ลบรายการ"
+          >
+            <Trash className="h-4 w-4 mr-1" />
+            ลบ
+          </button>
         </div>
       ),
     },
@@ -287,6 +342,15 @@ export default function RentPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        {/* Notification */}
+        {notification && (
+          <Notification
+            message={notification.message}
+            type={notification.type}
+            onClose={() => setNotification(null)}
+          />
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -380,7 +444,7 @@ export default function RentPage() {
           itemsPerPage={10}
         />
 
-        {/* Create/Edit Payment Modal */}
+
         <Modal
           isOpen={isCreatePaymentModalOpen || isEditPaymentModalOpen}
           onClose={() => {
@@ -407,7 +471,7 @@ export default function RentPage() {
                   })
                 }}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                disabled={!!selectedPayment} // Disable tenant selection when editing
+                disabled={!!selectedPayment} // Disable tenant selection when editing\
               >
                 <option value="">เลือกผู้เช่า</option>
                 {tenants // ใช้ tenants จาก useTenantsDB
@@ -532,6 +596,10 @@ export default function RentPage() {
                 <h4 className="text-sm font-medium text-gray-300 mb-2">
                   เอกสารที่แนบสำหรับคอนโดนี้ ({paymentDocuments.length} ไฟล์):
                 </h4>
+                <p className="text-xs text-gray-400 mb-2">
+                  **หมายเหตุ:** เอกสารเหล่านี้เชื่อมโยงกับคอนโดของผู้เช่า
+                  และถูกกรองให้แสดงเฉพาะประเภท 'payment_receipt'
+                </p>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {paymentDocuments.map((doc) => (
                     <div key={doc.id} className="flex items-center justify-between bg-gray-700 p-3 rounded-lg">
@@ -598,11 +666,22 @@ export default function RentPage() {
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isUploading}
               >
-                {isUploading ? "กำลังอัปโหลด..." : selectedPayment ? "อัพเดทรายการ" : "สร้างรายการ"}
+                {isUploading ? "กำลังอัปโหลด..." : selectedPayment ? "แก้ไข" : "สร้างรายการ"}
               </button>
             </div>
           </form>
         </Modal>
+        {/* Delete Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={confirmDelete}
+          title="ยืนยันการลบรายการชำระเงิน"
+          message={`คุณแน่ใจหรือไม่ว่าต้องการลบรายการชำระเงินของ ${paymentToDelete?.tenant?.full_name || 'นี้'} จำนวน ฿${paymentToDelete?.amount.toLocaleString() || 'N/A'}? การดำเนินการนี้ไม่สามารถย้อนกลับได้`}
+          confirmText="ลบ"
+          cancelText="ยกเลิก"
+          type="danger"
+        />
       </div>
     </MainLayout>
   )

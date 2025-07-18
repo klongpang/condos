@@ -191,69 +191,92 @@ export function useTenantsDB(userId?: string) {
 }
 
 // Custom hook for rent payments with real database
-export function useRentPaymentsDB(userId?: string) {
-  const [payments, setPayments] = useState<RentPayment[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  export function useRentPaymentsDB(userId?: string) {
+    const [payments, setPayments] = useState<RentPayment[]>([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
 
-  const fetchPayments = async () => {
-    try {
-      setLoading(true)
-      const allPayments = await rentPaymentService.getAll()
-      let filteredData = allPayments
+    const fetchPayments = async () => {
+      try {
+        setLoading(true)
+        const allPayments = await rentPaymentService.getAll()
+        let filteredData = allPayments
 
-      if (userId) {
-        const userCondos = await condoService.getByUserId(userId)
-        const userCondoIds = userCondos.map((c) => c.id)
-        filteredData = allPayments.filter((p) => p.tenant?.condo_id && userCondoIds.includes(p.tenant.condo_id))
+        if (userId) {
+          const userCondos = await condoService.getByUserId(userId)
+          const userCondoIds = userCondos.map((c) => c.id)
+          filteredData = allPayments.filter((p) => p.tenant?.condo_id && userCondoIds.includes(p.tenant.condo_id))
+        }
+
+        setPayments(filteredData)
+        setError(null)
+      } catch (err) {
+        setError("Failed to fetch payments")
+        console.error("Error fetching payments:", err)
+      } finally {
+        setLoading(false)
       }
+    }
 
-      setPayments(filteredData)
-      setError(null)
-    } catch (err) {
-      setError("Failed to fetch payments")
-      console.error("Error fetching payments:", err)
-    } finally {
-      setLoading(false)
+    useEffect(() => {
+      fetchPayments()
+      // Update overdue payments on load
+      rentPaymentService.updateOverduePayments()
+    }, [userId])
+
+    const addPayment = async (paymentData: Omit<RentPayment, "id" | "created_at">) => {
+      try {
+        const newPayment = await rentPaymentService.create(paymentData)
+        if (newPayment) {
+          setPayments((prev) => [newPayment, ...prev])
+          return newPayment
+        }
+      } catch (err) {
+        setError("Failed to add payment")
+        console.error("Error adding payment:", err)
+      }
+      return null
+    }
+
+    const updatePayment = async (id: string, updates: Partial<RentPayment>) => {
+      try {
+        const updatedPayment = await rentPaymentService.update(id, updates)
+        if (updatedPayment) {
+          setPayments((prev) => prev.map((p) => (p.id === id ? updatedPayment : p)))
+          return updatedPayment
+        }
+      } catch (err) {
+        setError("Failed to update payment")
+        console.error("Error updating payment:", err)
+      }
+      return null
+    }
+
+    const deletePayment = async (id: string) => {
+      try {
+        const success = await rentPaymentService.delete(id)
+        if (success) {
+          setPayments((prev) => prev.filter((p) => p.id !== id))
+          return true
+        }
+        return false
+      } catch (err) {
+        setError("Failed to delete payment")
+        console.error("Error deleting payment:", err)
+        return false
+      }
+    }
+
+    return { 
+      payments, 
+      loading, 
+      error, 
+      addPayment, 
+      updatePayment, 
+      deletePayment, 
+      refetch: fetchPayments 
     }
   }
-
-  useEffect(() => {
-    fetchPayments()
-    // Update overdue payments on load
-    rentPaymentService.updateOverduePayments()
-  }, [userId])
-
-  const addPayment = async (paymentData: Omit<RentPayment, "id" | "created_at">) => {
-    try {
-      const newPayment = await rentPaymentService.create(paymentData)
-      if (newPayment) {
-        setPayments((prev) => [newPayment, ...prev])
-        return newPayment
-      }
-    } catch (err) {
-      setError("Failed to add payment")
-      console.error("Error adding payment:", err)
-    }
-    return null
-  }
-
-  const updatePayment = async (id: string, updates: Partial<RentPayment>) => {
-    try {
-      const updatedPayment = await rentPaymentService.update(id, updates)
-      if (updatedPayment) {
-        setPayments((prev) => prev.map((p) => (p.id === id ? updatedPayment : p)))
-        return updatedPayment
-      }
-    } catch (err) {
-      setError("Failed to update payment")
-      console.error("Error updating payment:", err)
-    }
-    return null
-  }
-
-  return { payments, loading, error, addPayment, updatePayment, refetch: fetchPayments }
-}
 
 // Custom hook for financial records with real database
 export function useFinancialRecordsDB(userId?: string) {
