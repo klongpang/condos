@@ -1,7 +1,8 @@
 "use client"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Home, Building2, Users, CreditCard, TrendingUp, FileText, Bell, Settings, LogOut, History } from "lucide-react"
+import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation"
+import { Home, Building2, Users, CreditCard, TrendingUp, FileText, Bell, Settings, LogOut, History, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 
@@ -23,6 +24,19 @@ const navigation = [
 export function Sidebar({ onOpenProfileModal }: SidebarProps) {
   const pathname = usePathname()
   const { user, logout } = useAuth()
+  const router = useRouter()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      await logout()
+      router.push("/login")
+    } catch (error) {
+      console.error("Logout error:", error)
+      setIsLoggingOut(false)
+    }
+  }
 
   return (
     <div className="flex h-full w-64 flex-col bg-gray-900 border-r border-gray-800">
@@ -74,18 +88,33 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
 
         <div className="space-y-1">
           <button
-            onClick={onOpenProfileModal} // Call the prop function
+            onClick={onOpenProfileModal}
             className="flex items-center w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
           >
             <Settings className="mr-3 h-4 w-4" />
             ตั้งค่าโปรไฟล์
           </button>
           <button
-            onClick={logout}
-            className="flex items-center w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className={cn(
+              "flex items-center w-full px-3 py-2 text-sm rounded-lg transition-colors",
+              isLoggingOut 
+                ? "bg-gray-700 text-gray-400 cursor-not-allowed" 
+                : "text-gray-300 hover:bg-gray-800 hover:text-white"
+            )}
           >
-            <LogOut className="mr-3 h-4 w-4" />
-            ออกจากระบบ
+            {isLoggingOut ? (
+              <>
+                <Loader2 className="mr-3 h-4 w-4 animate-spin" />
+                กำลังออกจากระบบ...
+              </>
+            ) : (
+              <>
+                <LogOut className="mr-3 h-4 w-4" />
+                ออกจากระบบ
+              </>
+            )}
           </button>
         </div>
       </div>
