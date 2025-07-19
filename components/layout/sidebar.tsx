@@ -1,9 +1,13 @@
 "use client"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"  // <-- import useRouter
+import { usePathname } from "next/navigation"
 import { Home, Building2, Users, CreditCard, TrendingUp, FileText, Bell, Settings, LogOut, History } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
+
+interface SidebarProps {
+  onOpenProfileModal: () => void
+}
 
 const navigation = [
   { name: "แดชบอร์ด", href: "/dashboard", icon: Home },
@@ -16,22 +20,16 @@ const navigation = [
   { name: "การแจ้งเตือน", href: "/notifications", icon: Bell },
 ]
 
-export function Sidebar() {
+export function Sidebar({ onOpenProfileModal }: SidebarProps) {
   const pathname = usePathname()
-  const router = useRouter()  // <-- เพิ่มตรงนี้
   const { user, logout } = useAuth()
-
-  const handleLogout = async () => {
-    await logout()      // เรียก logout ฟังก์ชันของคุณ
-    router.push('/login')  // หลัง logout เสร็จ redirect ไป /login
-  }
 
   return (
     <div className="flex h-full w-64 flex-col bg-gray-900 border-r border-gray-800">
       {/* Logo */}
       <div className="flex h-16 items-center px-6 border-b border-gray-800">
         <Building2 className="h-8 w-8 text-green-500" />
-        <span className="ml-2 text-xl font-bold text-white">จัดการคอนโด</span>
+        <span className="ml-2 text-xl font-bold text-white">CondoManager</span>
       </div>
 
       {/* Navigation */}
@@ -57,8 +55,16 @@ export function Sidebar() {
       {/* User section */}
       <div className="border-t border-gray-800 p-4">
         <div className="flex items-center mb-4">
-          <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center">
-            <span className="text-sm font-medium text-white">{user?.full_name?.charAt(0) || "U"}</span>
+          <div className="h-10 w-10 rounded-full bg-green-600 flex items-center justify-center overflow-hidden">
+            {user?.profile_picture_url ? (
+              <img
+                src={user.profile_picture_url || "/placeholder.svg"}
+                alt="Profile"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="text-sm font-medium text-white">{user?.full_name?.charAt(0) || "U"}</span>
+            )}
           </div>
           <div className="ml-3">
             <p className="text-sm font-medium text-white">{user?.full_name}</p>
@@ -67,15 +73,15 @@ export function Sidebar() {
         </div>
 
         <div className="space-y-1">
-          <Link
-            href="/profile"
-            className="flex items-center px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
+          <button
+            onClick={onOpenProfileModal} // Call the prop function
+            className="flex items-center w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
           >
             <Settings className="mr-3 h-4 w-4" />
             ตั้งค่าโปรไฟล์
-          </Link>
+          </button>
           <button
-            onClick={handleLogout}   // <-- ใช้ฟังก์ชันนี้แทน
+            onClick={logout}
             className="flex items-center w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
           >
             <LogOut className="mr-3 h-4 w-4" />

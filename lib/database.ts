@@ -32,8 +32,44 @@ export const userService = {
     .single()
 
   return error ? null : data
+  },
+  async update(
+  id: string,
+  updates: Partial<User>
+): Promise<User | null> {
+  try {
+    // ตรวจสอบข้อมูลก่อนอัปเดต
+    if (!id || typeof updates !== 'object') {
+      throw new Error('Invalid input data');
+    }
+
+    const { data, error } = await supabaseAdmin!
+      .from('users')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase Error Details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details
+      });
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Full Error Stack:', error);
+    return null;
   }
 }
+}
+
 
 // Condo functions
 export const condoService = {

@@ -28,8 +28,10 @@ export interface User {
   username: string
   full_name: string
   email?: string
+  password?: string;
   phone?: string
   created_at: string
+  profile_picture_url?: string
 }
 
 export interface Condo {
