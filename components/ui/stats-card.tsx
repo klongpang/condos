@@ -9,16 +9,30 @@ interface StatsCardProps {
     isPositive: boolean
   }
   className?: string
+  loading?: boolean
 }
 
-export function StatsCard({ title, value, icon: Icon, trend, className = "" }: StatsCardProps) {
+export function StatsCard({ 
+  title, 
+  value, 
+  icon: Icon, 
+  trend, 
+  className = "", 
+  loading = false 
+}: StatsCardProps) {
   return (
     <div className={`bg-gray-800 rounded-lg p-6 border border-gray-700 ${className}`}>
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex-1">
           <p className="text-sm font-medium text-gray-400">{title}</p>
-          <p className="text-2xl font-bold text-white mt-1">{value}</p>
-          {trend && (
+          {loading ? (
+            <div className="mt-1">
+              <div className="h-8 w-32 bg-gray-700 animate-pulse rounded"></div>
+            </div>
+          ) : (
+            <p className="text-2xl font-bold text-white mt-1">{value}</p>
+          )}
+          {trend && !loading && (
             <p className={`text-sm mt-1 ${trend.isPositive ? "text-green-500" : "text-red-500"}`}>
               {trend.isPositive ? "+" : ""}
               {trend.value}%

@@ -1,613 +1,418 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { BarChart3, PieChart, TrendingUp, Download, Filter, DollarSign, Home } from "lucide-react"
 import { MainLayout } from "@/components/layout/main-layout"
-import { StatsCard } from "@/components/ui/stats-card"
-import { DataTable } from "@/components/ui/data-table"
 import { useAuth } from "@/lib/auth-context"
-import { useCondosDB, useTenantsDB, useRentPaymentsDB, useFinancialRecordsDB } from "@/lib/hooks/use-database"
-import { Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend, Tooltip, Pie, Cell } from "recharts"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { useFinancialRecordsDB, useRentPaymentsDB, useCondosDB } from "@/lib/hooks/use-database"
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
-import { BarChart } from "recharts"
+import { Filter, DollarSign, TrendingUp, TrendingDown } from "lucide-react" // Import new icons
+import { StatsCard } from "@/components/ui/stats-card" // Import StatsCard
 
 export default function ReportsPage() {
   const { user } = useAuth()
-  const [selectedPeriod, setSelectedPeriod] = useState("current-month")
-  const [selectedReport, setSelectedReport] = useState("income-expense")
+  const { incomeRecords, expenseRecords, loading: financialsLoading } = useFinancialRecordsDB(user?.id)
+  const { payments, loading: paymentsLoading } = useRentPaymentsDB(user?.id)
+  const { condos, loading: condosLoading } = useCondosDB(user?.id)
 
-  const { condos } = useCondosDB(user?.id)
-  const { tenants } = useTenantsDB(user?.id)
-  const { payments } = useRentPaymentsDB(user?.id)
-  const { incomeRecords, expenseRecords } = useFinancialRecordsDB(user?.id)
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString())
+  const [selectedMonth, setSelectedMonth] = useState<string>("all") // New state for month filter
+  const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>("all")
 
-  // Filter data based on selected period (for summary stats and charts)
-  const filteredIncomeRecords = useMemo(() => {
-    const now = new Date()
-    return incomeRecords.filter((record) => {
-      const recordDate = new Date(record.date)
-      if (selectedPeriod === "current-month") {
-        return recordDate.getMonth() === now.getMonth() && recordDate.getFullYear() === now.getFullYear()
-      } else if (selectedPeriod === "last-month") {
-        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        return recordDate.getMonth() === lastMonth.getMonth() && recordDate.getFullYear() === lastMonth.getFullYear()
-      } else if (selectedPeriod === "current-year") {
-        return recordDate.getFullYear() === now.getFullYear()
-      } else if (selectedPeriod === "last-year") {
-        return recordDate.getFullYear() === now.getFullYear() - 1
-      }
-      return true // "all" or default
-    })
-  }, [incomeRecords, selectedPeriod])
-
-  const filteredExpenseRecords = useMemo(() => {
-    const now = new Date()
-    return expenseRecords.filter((record) => {
-      const recordDate = new Date(record.date)
-      if (selectedPeriod === "current-month") {
-        return recordDate.getMonth() === now.getMonth() && recordDate.getFullYear() === now.getFullYear()
-      } else if (selectedPeriod === "last-month") {
-        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        return recordDate.getMonth() === lastMonth.getMonth() && recordDate.getFullYear() === lastMonth.getFullYear()
-      } else if (selectedPeriod === "current-year") {
-        return recordDate.getFullYear() === now.getFullYear()
-      } else if (selectedPeriod === "last-year") {
-        return recordDate.getFullYear() === now.getFullYear() - 1
-      }
-      return true // "all" or default
-    })
-  }, [expenseRecords, selectedPeriod])
-
-  const filteredPayments = useMemo(() => {
-    const now = new Date()
-    return payments.filter((payment) => {
-      const paymentDate = new Date(payment.due_date) // Use due_date for filtering period
-      if (selectedPeriod === "current-month") {
-        return paymentDate.getMonth() === now.getMonth() && paymentDate.getFullYear() === now.getFullYear()
-      } else if (selectedPeriod === "last-month") {
-        const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        return paymentDate.getMonth() === lastMonth.getMonth() && paymentDate.getFullYear() === lastMonth.getFullYear()
-      } else if (selectedPeriod === "current-year") {
-        return paymentDate.getFullYear() === now.getFullYear()
-      } else if (selectedPeriod === "last-year") {
-        return paymentDate.getFullYear() === now.getFullYear() - 1
-      }
-      return true // "all" or default
-    })
-  }, [payments, selectedPeriod])
-
-  // Calculate financial data for summary
-  const totalIncome = filteredIncomeRecords.reduce((sum, record) => sum + record.amount, 0)
-  const totalExpenses = filteredExpenseRecords.reduce((sum, record) => sum + record.amount, 0)
-  const netIncome = totalIncome - totalExpenses
-
-  // Payment statistics for summary and pie chart
-  const paidPayments = filteredPayments.filter((p) => p.status === "paid")
-  const unpaidPayments = filteredPayments.filter((p) => p.status === "unpaid")
-  const overduePayments = filteredPayments.filter((p) => p.status === "overdue")
-
-  const paymentStatusData = [
-    { name: "ชำระแล้ว", value: paidPayments.length, color: "hsl(var(--chart-1))" }, // Green
-    { name: "ยังไม่ชำระ", value: unpaidPayments.length, color: "hsl(var(--chart-2))" }, // Yellow
-    { name: "เกินกำหนด", value: overduePayments.length, color: "hsl(var(--chart-3))" }, // Red
+  // Generate month options in Thai
+  const monthOptions = [
+    { value: "01", label: "มกราคม" },
+    { value: "02", label: "กุมภาพันธ์" },
+    { value: "03", label: "มีนาคม" },
+    { value: "04", label: "เมษายน" },
+    { value: "05", label: "พฤษภาคม" },
+    { value: "06", label: "มิถุนายน" },
+    { value: "07", label: "กรกฎาคม" },
+    { value: "08", label: "สิงหาคม" },
+    { value: "09", label: "กันยายน" },
+    { value: "10", label: "ตุลาคม" },
+    { value: "11", label: "พฤศจิกายน" },
+    { value: "12", label: "ธันวาคม" },
   ]
 
-  // Occupancy rate
-  const totalUnits = condos.length
-  const occupiedUnits = tenants.filter((t) => t.is_active).length
-  const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0
-
-  // Monthly income/expense data for chart
-  const monthlyFinancials = useMemo(() => {
-    const dataMap = new Map<string, { income: number; expense: number }>()
-    const now = new Date()
-    const currentYear = now.getFullYear()
-
-    // Determine the year range for the chart based on selectedPeriod
-    let startYear = currentYear
-    let endYear = currentYear
-    if (selectedPeriod === "last-year") {
-      startYear = currentYear - 1
-      endYear = currentYear - 1
-    } else if (selectedPeriod === "all") {
-      // Find min/max year from all records
-      const allYears = new Set<number>()
-      incomeRecords.forEach((r) => allYears.add(new Date(r.date).getFullYear()))
-      expenseRecords.forEach((r) => allYears.add(new Date(r.date).getFullYear()))
-      if (allYears.size > 0) {
-        startYear = Math.min(...Array.from(allYears))
-        endYear = Math.max(...Array.from(allYears))
-      }
+  // Memoized filtered financial records based on year, month, and condo
+  const filteredFinancialRecords = useMemo(() => {
+    return {
+      income: incomeRecords.filter((record) => {
+        const recordDate = new Date(record.date)
+        const recordYear = recordDate.getFullYear().toString()
+        const recordMonth = (recordDate.getMonth() + 1).toString().padStart(2, "0") // Ensure 2 digits
+        const yearMatch = selectedYear === "all" || recordYear === selectedYear
+        const monthMatch = selectedMonth === "all" || recordMonth === selectedMonth
+        const condoMatch = selectedCondoFilter === "all" || record.condo_id === selectedCondoFilter
+        return yearMatch && monthMatch && condoMatch
+      }),
+      expense: expenseRecords.filter((record) => {
+        const recordDate = new Date(record.date)
+        const recordYear = recordDate.getFullYear().toString()
+        const recordMonth = (recordDate.getMonth() + 1).toString().padStart(2, "0") // Ensure 2 digits
+        const yearMatch = selectedYear === "all" || recordYear === selectedYear
+        const monthMatch = selectedMonth === "all" || recordMonth === selectedMonth
+        const condoMatch = selectedCondoFilter === "all" || record.condo_id === selectedCondoFilter
+        return yearMatch && monthMatch && condoMatch
+      }),
     }
+  }, [incomeRecords, expenseRecords, selectedYear, selectedMonth, selectedCondoFilter])
 
-    // Initialize map for all months in the relevant year(s)
-    for (let y = startYear; y <= endYear; y++) {
-      for (let i = 0; i < 12; i++) {
-        const monthKey = `${y}-${(i + 1).toString().padStart(2, "0")}`
-        dataMap.set(monthKey, { income: 0, expense: 0 })
-      }
+  // Memoized filtered payments based on year, month, and condo
+  const filteredPayments = useMemo(() => {
+    return payments.filter((p) => {
+      const paymentDate = new Date(p.due_date)
+      const paymentYear = paymentDate.getFullYear().toString()
+      const paymentMonth = (paymentDate.getMonth() + 1).toString().padStart(2, "0") // Ensure 2 digits
+      const yearMatch = selectedYear === "all" || paymentYear === selectedYear
+      const monthMatch = selectedMonth === "all" || paymentMonth === selectedMonth
+      const condoMatch = selectedCondoFilter === "all" || p.tenant?.condo_id === selectedCondoFilter
+      return yearMatch && monthMatch && condoMatch
+    })
+  }, [payments, selectedYear, selectedMonth, selectedCondoFilter])
+
+  // Monthly Financial Data for Bar Chart
+  const monthlyFinancialData = useMemo(() => {
+    const dataMap = new Map<string, { name: string; income: number; expense: number }>()
+
+    // Initialize dataMap with all months for the selected year
+    for (let i = 0; i < 12; i++) {
+      const monthValue = (i + 1).toString().padStart(2, "0")
+      const monthName = format(new Date(Number.parseInt(selectedYear), i, 1), "MMMM", { locale: th })
+      dataMap.set(monthValue, { name: monthName, income: 0, expense: 0 })
     }
 
     // Populate data for income
-    incomeRecords.forEach((record) => {
-      const recordDate = new Date(record.date)
-      const recordYear = recordDate.getFullYear()
-      const recordMonth = (recordDate.getMonth() + 1).toString().padStart(2, "0")
-      const monthKey = `${recordYear}-${recordMonth}`
-
-      // Filter by selected period for chart data
-      if (
-        selectedPeriod === "current-month" &&
-        !(recordDate.getMonth() === now.getMonth() && recordDate.getFullYear() === now.getFullYear())
-      )
-        return
-      if (
-        selectedPeriod === "last-month" &&
-        !(
-          recordDate.getMonth() === (now.getMonth() - 1 + 12) % 12 &&
-          recordDate.getFullYear() === (now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear())
-        )
-      )
-        return
-      if (selectedPeriod === "current-year" && recordYear !== currentYear) return
-      if (selectedPeriod === "last-year" && recordYear !== currentYear - 1) return
-      // For "all", no date filtering here, it's handled by the map initialization
-
-      const current = dataMap.get(monthKey) || { income: 0, expense: 0 }
-      dataMap.set(monthKey, { ...current, income: current.income + record.amount })
+    filteredFinancialRecords.income.forEach((record) => {
+      const monthValue = (new Date(record.date).getMonth() + 1).toString().padStart(2, "0")
+      const currentMonthData = dataMap.get(monthValue)
+      if (currentMonthData) {
+        currentMonthData.income += record.amount
+      }
     })
 
     // Populate data for expenses
-    expenseRecords.forEach((record) => {
-      const recordDate = new Date(record.date)
-      const recordYear = recordDate.getFullYear()
-      const recordMonth = (recordDate.getMonth() + 1).toString().padStart(2, "0")
-      const monthKey = `${recordYear}-${recordMonth}`
-
-      // Filter by selected period for chart data
-      if (
-        selectedPeriod === "current-month" &&
-        !(recordDate.getMonth() === now.getMonth() && recordDate.getFullYear() === now.getFullYear())
-      )
-        return
-      if (
-        selectedPeriod === "last-month" &&
-        !(
-          recordDate.getMonth() === (now.getMonth() - 1 + 12) % 12 &&
-          recordDate.getFullYear() === (now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear())
-        )
-      )
-        return
-      if (selectedPeriod === "current-year" && recordYear !== currentYear) return
-      if (selectedPeriod === "last-year" && recordYear !== currentYear - 1) return
-
-      const current = dataMap.get(monthKey) || { income: 0, expense: 0 }
-      dataMap.set(monthKey, { ...current, expense: current.expense + record.amount })
+    filteredFinancialRecords.expense.forEach((record) => {
+      const monthValue = (new Date(record.date).getMonth() + 1).toString().padStart(2, "0")
+      const currentMonthData = dataMap.get(monthValue)
+      if (currentMonthData) {
+        currentMonthData.expense += record.amount
+      }
     })
 
-    const sortedData = Array.from(dataMap.entries())
-      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-      .map(([key, value]) => {
-        const [year, monthNum] = key.split("-").map(Number)
-        const monthName = format(new Date(year, monthNum - 1, 1), "MMM", { locale: th })
-        return {
-          month: monthName,
-          income: value.income,
-          expense: value.expense,
-        }
-      })
-    return sortedData
-  }, [incomeRecords, expenseRecords, selectedPeriod])
+    // Convert map to array and sort by month number
+    return Array.from(dataMap.entries())
+      .sort(([monthA], [monthB]) => Number.parseInt(monthA) - Number.parseInt(monthB))
+      .map(([, value]) => value)
+  }, [filteredFinancialRecords.income, filteredFinancialRecords.expense, selectedYear])
 
-  // Tenant payment history columns
-  const tenantPaymentColumns = [
-    {
-      key: "tenant_name",
-      header: "ผู้เช่า",
-      render: (payment: any) => {
-        const tenant = tenants.find((t) => t.id === payment.tenant_id)
-        return tenant?.full_name || "ไม่ทราบ"
-      },
-    },
-    {
-      key: "condo",
-      header: "ห้อง",
-      render: (payment: any) => {
-        const tenant = tenants.find((t) => t.id === payment.tenant_id)
-        const condo = tenant ? condos.find((c) => c.id === tenant.condo_id) : null
-        return condo ? `${condo.name} (${condo.room_number})` : "ไม่ทราบ"
-      },
-    },
-    {
-      key: "amount",
-      header: "จำนวนเงิน",
-      render: (payment: any) => `฿${payment.amount.toLocaleString()}`,
-    },
-    {
-      key: "due_date",
-      header: "วันครบกำหนด",
-      render: (payment: any) => new Date(payment.due_date).toLocaleDateString("th-TH"),
-    },
-    {
-      key: "paid_date",
-      header: "วันที่ชำระ",
-      render: (payment: any) => (payment.paid_date ? new Date(payment.paid_date).toLocaleDateString("th-TH") : "-"),
-    },
-    {
-      key: "status",
-      header: "สถานะ",
-      render: (payment: any) => {
-        const statusColors = {
-          paid: "bg-green-900 text-green-300",
-          unpaid: "bg-yellow-900 text-yellow-300",
-          overdue: "bg-red-900 text-red-300",
-        }
-        const statusText = {
-          paid: "ชำระแล้ว",
-          unpaid: "ยังไม่ชำระ",
-          overdue: "เกินกำหนด",
-        }
-        return (
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[payment.status as keyof typeof statusColors]}`}
-          >
-            {statusText[payment.status as keyof typeof statusText]}
-          </span>
-        )
-      },
-    },
-  ]
+  // Payment Status Data for Pie Chart
+  const paymentStatusData = useMemo(() => {
+    const statusCounts = {
+      paid: 0,
+      unpaid: 0,
+      overdue: 0,
+    }
 
-  // Property performance data columns
-  const propertyPerformanceColumns = [
-    {
-      key: "name",
-      header: "คอนโด",
-      render: (condo: any) => `${condo.name} (${condo.room_number})`,
-    },
-    {
-      key: "tenant",
-      header: "ผู้เช่าปัจจุบัน",
-      render: (condo: any) => {
-        const tenant = tenants.find((t) => t.condo_id === condo.id && t.is_active)
-        return tenant ? tenant.full_name : "ว่าง"
-      },
-    },
-    {
-      key: "monthly_rent",
-      header: "ค่าเช่า/เดือน",
-      render: (condo: any) => {
-        const tenant = tenants.find((t) => t.condo_id === condo.id && t.is_active)
-        return tenant ? `฿${tenant.monthly_rent.toLocaleString()}` : "-"
-      },
-    },
-    {
-      key: "occupancy_months",
-      header: "เช่าแล้ว (เดือน)",
-      render: (condo: any) => {
-        const tenant = tenants.find((t) => t.condo_id === condo.id && t.is_active)
-        if (!tenant) return "0"
-        const startDate = new Date(tenant.rental_start)
-        const today = new Date()
-        const months = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30))
-        return months.toString()
-      },
-    },
-    {
-      key: "total_income",
-      header: "รายได้รวม",
-      render: (condo: any) => {
-        const income = incomeRecords.filter((r) => r.condo_id === condo.id).reduce((sum, r) => sum + r.amount, 0)
-        return `฿${income.toLocaleString()}`
-      },
-    },
-  ]
+    filteredPayments.forEach((payment) => {
+      statusCounts[payment.status]++
+    })
 
-  const exportReport = () => {
-    // Simulate report export
-    alert("กำลังส่งออกรายงาน...")
-  }
+    return [
+      { name: "ชำระแล้ว", value: statusCounts.paid, color: "#22c55e" }, // green-500
+      { name: "ยังไม่ชำระ", value: statusCounts.unpaid, color: "#eab308" }, // yellow-500
+      { name: "เกินกำหนด", value: statusCounts.overdue, color: "#ef4444" }, // red-500
+    ]
+  }, [filteredPayments])
+
+  // Income by Category Data for Pie Chart
+  const incomeByCategoryData = useMemo(() => {
+    const categoryMap = new Map<string, number>()
+    filteredFinancialRecords.income.forEach((record) => {
+      const category = record.category || "ไม่ระบุ"
+      categoryMap.set(category, (categoryMap.get(category) || 0) + record.amount)
+    })
+    return Array.from(categoryMap.entries()).map(([name, value]) => ({ name, value }))
+  }, [filteredFinancialRecords.income])
+
+  // Expense by Category Data for Pie Chart
+  const expenseByCategoryData = useMemo(() => {
+    const categoryMap = new Map<string, number>()
+    filteredFinancialRecords.expense.forEach((record) => {
+      const category = record.category || "ไม่ระบุ"
+      categoryMap.set(category, (categoryMap.get(category) || 0) + record.amount)
+    })
+    return Array.from(categoryMap.entries()).map(([name, value]) => ({ name, value }))
+  }, [filteredFinancialRecords.expense])
+
+  // Available Years for filter
+  const availableYears = useMemo(() => {
+    const years = new Set<number>()
+    incomeRecords.forEach((r) => years.add(new Date(r.date).getFullYear()))
+    expenseRecords.forEach((r) => years.add(new Date(r.date).getFullYear()))
+    payments.forEach((p) => years.add(new Date(p.due_date).getFullYear()))
+    return Array.from(years).sort((a, b) => b - a)
+  }, [incomeRecords, expenseRecords, payments])
+
+  // Financial Summary
+  const totalIncome = filteredFinancialRecords.income.reduce((sum, record) => sum + record.amount, 0)
+  const totalExpenses = filteredFinancialRecords.expense.reduce((sum, record) => sum + record.amount, 0)
+  const netIncome = totalIncome - totalExpenses
+
+  // Colors for Pie Charts (can be expanded)
+  const PIE_COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ffc658", "#a4de6c"]
 
   return (
     <MainLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-white">รายงานและสถิติ</h1>
+          <p className="text-gray-400">ภาพรวมการเงินและสถานะการชำระค่าเช่า</p>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-wrap items-center gap-4">
+          <Filter className="h-5 w-5 text-gray-400" />
           <div>
-            <h1 className="text-2xl font-bold text-white">รายงาน</h1>
-            <p className="text-gray-400">รายงานและสถิติการจัดการคอนโด</p>
-          </div>
-          <div className="flex space-x-3">
+            <label className="text-sm font-medium text-gray-300 mr-2">ปี:</label>
             <select
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(e.target.value)}
+              className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              <option value="current-month">เดือนปัจจุบัน</option>
-              <option value="last-month">เดือนที่แล้ว</option>
-              <option value="current-year">ปีปัจจุบัน</option>
-              <option value="last-year">ปีที่แล้ว</option>
-              <option value="all">ทั้งหมด</option>
+              {availableYears.length > 0 ? (
+                availableYears.map((year) => (
+                  <option key={year} value={year.toString()}>
+                    {year + 543}
+                  </option>
+                ))
+              ) : (
+                <option value={new Date().getFullYear().toString()}>{new Date().getFullYear() + 543}</option>
+              )}
             </select>
-            <button
-              onClick={exportReport}
-              className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-300 mr-2">เดือน:</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              <Download className="h-4 w-4 mr-2" />
-              ส่งออกรายงาน
-            </button>
+              <option value="all">ทั้งหมด</option>
+              {monthOptions.map((month) => (
+                <option key={month.value} value={month.value}>
+                  {month.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-300 mr-2">คอนโด:</label>
+            <select
+              value={selectedCondoFilter}
+              onChange={(e) => setSelectedCondoFilter(e.target.value)}
+              className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="all">ทั้งหมด</option>
+              {condos.map((condo) => (
+                <option key={condo.id} value={condo.id}>
+                  {condo.name} ({condo.room_number})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
         {/* Summary Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <StatsCard
-            title="รายได้รวม"
+            title="รายรับรวม"
             value={`฿${totalIncome.toLocaleString()}`}
             icon={TrendingUp}
-            trend={{ value: 0, isPositive: true }} // Trend value is placeholder, actual trend calculation is complex
+            className="bg-green-900/20 border-green-700"
+            loading={financialsLoading}
           />
           <StatsCard
-            title="ค่าใช้จ่ายรวม"
+            title="รายจ่ายรวม"
             value={`฿${totalExpenses.toLocaleString()}`}
-            icon={BarChart3}
-            trend={{ value: 0, isPositive: false }}
+            icon={TrendingDown}
+            className="bg-red-900/20 border-red-700"
+            loading={financialsLoading}
           />
           <StatsCard
             title="กำไรสุทธิ"
             value={`฿${netIncome.toLocaleString()}`}
             icon={DollarSign}
-            trend={{ value: 0, isPositive: netIncome >= 0 }}
-          />
-          <StatsCard
-            title="อัตราการเช่า"
-            value={`${occupancyRate.toFixed(1)}%`}
-            icon={Home}
-            trend={{ value: 0, isPositive: true }}
+            className={netIncome >= 0 ? "bg-blue-900/20 border-blue-700" : "bg-red-900/20 border-red-700"}
+            loading={financialsLoading}
           />
         </div>
 
-        {/* Monthly Income/Expense Chart */}
+        {/* Monthly Financial Chart */}
         <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-          <h3 className="text-lg font-medium text-white mb-4">
-            รายรับ-รายจ่ายรายเดือน (
-            {selectedPeriod === "current-year"
-              ? new Date().getFullYear() + 543
-              : selectedPeriod === "last-year"
-                ? new Date().getFullYear() - 1 + 543
-                : "ทุกปี"}
-            )
-          </h3>
-          <ChartContainer
-            config={{
-              income: {
-                label: "รายรับ",
-                color: "hsl(var(--chart-1))", // Green
-              },
-              expense: {
-                label: "รายจ่าย",
-                color: "hsl(var(--chart-2))", // Red
-              },
-            }}
-            className="h-[300px] w-full"
-          >
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyFinancials} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--muted-foreground))" />
-                <XAxis
-                  dataKey="month"
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
+          <h2 className="text-xl font-semibold text-white mb-4">
+            รายรับและรายจ่ายรายเดือน ({Number.parseInt(selectedYear) + 543})
+          </h2>
+          {financialsLoading ? (
+            <div className="text-gray-400 text-center py-10">กำลังโหลดข้อมูล...</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={monthlyFinancialData}
+                margin={{
+                  top: 20,
+                  right: 30,
+                  left: 20,
+                  bottom: 5,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
+                <XAxis dataKey="name" stroke="#cbd5e0" />
+                <YAxis stroke="#cbd5e0" tickFormatter={(value) => `฿${value.toLocaleString()}`} />
+                <Tooltip
+                  formatter={(value: number) => `฿${value.toLocaleString()}`}
+                  contentStyle={{ backgroundColor: "#2d3748", border: "none", borderRadius: "8px" }}
+                  labelStyle={{ color: "#cbd5e0" }}
+                  itemStyle={{ color: "#cbd5e0" }}
                 />
-                <YAxis
-                  stroke="hsl(var(--muted-foreground))"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `฿${value.toLocaleString()}`}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Legend />
-                <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} />
+                <Legend wrapperStyle={{ color: "#cbd5e0" }} />
+                <Bar dataKey="income" name="รายรับ" fill="#22c55e" /> {/* green-500 */}
+                <Bar dataKey="expense" name="รายจ่าย" fill="#ef4444" /> {/* red-500 */}
               </BarChart>
             </ResponsiveContainer>
-          </ChartContainer>
+          )}
+        </div>
+
+        {/* Income and Expense by Category Pie Charts */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+            <h2 className="text-xl font-semibold text-white mb-4">
+              รายรับตามหมวดหมู่ ({Number.parseInt(selectedYear) + 543}
+              {selectedMonth !== "all" && ` - ${monthOptions.find((m) => m.value === selectedMonth)?.label}`})
+            </h2>
+            {financialsLoading ? (
+              <div className="text-gray-400 text-center py-10">กำลังโหลดข้อมูล...</div>
+            ) : incomeByCategoryData.length === 0 ? (
+              <div className="text-gray-400 text-center py-10">ไม่พบข้อมูลรายรับสำหรับตัวกรองที่เลือก</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={incomeByCategoryData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {incomeByCategoryData.map((entry, index) => (
+                      <Cell key={`cell-income-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, name: string) => [`฿${value.toLocaleString()}`, name]}
+                    contentStyle={{ backgroundColor: "#2d3748", border: "none", borderRadius: "8px" }}
+                    labelStyle={{ color: "#cbd5e0" }}
+                    itemStyle={{ color: "#cbd5e0" }}
+                  />
+                  <Legend wrapperStyle={{ color: "#cbd5e0" }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+            <h2 className="text-xl font-semibold text-white mb-4">
+              รายจ่ายตามหมวดหมู่ ({Number.parseInt(selectedYear) + 543}
+              {selectedMonth !== "all" && ` - ${monthOptions.find((m) => m.value === selectedMonth)?.label}`})
+            </h2>
+            {financialsLoading ? (
+              <div className="text-gray-400 text-center py-10">กำลังโหลดข้อมูล...</div>
+            ) : expenseByCategoryData.length === 0 ? (
+              <div className="text-gray-400 text-center py-10">ไม่พบข้อมูลรายจ่ายสำหรับตัวกรองที่เลือก</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={expenseByCategoryData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {expenseByCategoryData.map((entry, index) => (
+                      <Cell key={`cell-expense-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, name: string) => [`฿${value.toLocaleString()}`, name]}
+                    contentStyle={{ backgroundColor: "#2d3748", border: "none", borderRadius: "8px" }}
+                    labelStyle={{ color: "#cbd5e0" }}
+                    itemStyle={{ color: "#cbd5e0" }}
+                  />
+                  <Legend wrapperStyle={{ color: "#cbd5e0" }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         </div>
 
         {/* Payment Status Pie Chart */}
         <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-          <h3 className="text-lg font-medium text-white mb-4">สถานะการชำระค่าเช่า</h3>
-          <ChartContainer
-            config={{
-              ชำระแล้ว: { label: "ชำระแล้ว", color: "hsl(var(--chart-1))" },
-              ยังไม่ชำระ: { label: "ยังไม่ชำระ", color: "hsl(var(--chart-2))" },
-              เกินกำหนด: { label: "เกินกำหนด", color: "hsl(var(--chart-3))" },
-            }}
-            className="h-[300px] w-full"
-          >
-            <ResponsiveContainer width="100%" height="100%">
+          <h2 className="text-xl font-semibold text-white mb-4">
+            สถานะการชำระค่าเช่า ({Number.parseInt(selectedYear) + 543}
+            {selectedMonth !== "all" && ` - ${monthOptions.find((m) => m.value === selectedMonth)?.label}`})
+          </h2>
+          {paymentsLoading ? (
+            <div className="text-gray-400 text-center py-10">กำลังโหลดข้อมูล...</div>
+          ) : paymentStatusData.every((d) => d.value === 0) ? (
+            <div className="text-gray-400 text-center py-10">ไม่พบข้อมูลการชำระค่าเช่าสำหรับตัวกรองที่เลือก</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Tooltip content={<ChartTooltipContent nameKey="name" hideLabel />} />
                 <Pie
                   data={paymentStatusData}
-                  dataKey="value"
-                  nameKey="name"
                   cx="50%"
                   cy="50%"
-                  outerRadius={100}
                   labelLine={false}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                 >
                   {paymentStatusData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
+                <Tooltip
+                  formatter={(value: number, name: string) => [`${value.toLocaleString()} รายการ`, name]}
+                  contentStyle={{ backgroundColor: "#2d3748", border: "none", borderRadius: "8px" }}
+                  labelStyle={{ color: "#cbd5e0" }}
+                  itemStyle={{ color: "#cbd5e0" }}
+                />
+                <Legend wrapperStyle={{ color: "#cbd5e0" }} />
               </PieChart>
             </ResponsiveContainer>
-          </ChartContainer>
-        </div>
-
-        {/* Report Sections */}
-        <div className="space-y-6">
-          <div className="flex items-center space-x-4">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <select
-              value={selectedReport}
-              onChange={(e) => setSelectedReport(e.target.value)}
-              className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              <option value="income-expense">รายงานรายได้-ค่าใช้จ่าย</option>
-              <option value="payment-history">ประวัติการชำระเงิน</option>
-              <option value="property-performance">ผลการดำเนินงานแต่ละห้อง</option>
-              <option value="tenant-summary">สรุปผู้เช่า</option>
-            </select>
-          </div>
-
-          {selectedReport === "income-expense" && (
-            <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-white">รายงานรายได้-ค่าใช้จ่าย</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-                  <h4 className="text-lg font-medium text-white mb-4">รายการรายรับ</h4>
-                  <DataTable
-                    data={filteredIncomeRecords}
-                    columns={[
-                      {
-                        key: "date",
-                        header: "วันที่",
-                        render: (record: any) => format(new Date(record.date), "dd/MM/yyyy", { locale: th }),
-                      },
-                      { key: "category", header: "หมวดหมู่" },
-                      {
-                        key: "amount",
-                        header: "จำนวนเงิน",
-                        render: (record: any) => `฿${record.amount.toLocaleString()}`,
-                      },
-                    ]}
-                    emptyMessage="ไม่พบรายการรายรับ"
-                    itemsPerPage={5}
-                    showPagination={true}
-                  />
-                </div>
-                <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-                  <h4 className="text-lg font-medium text-white mb-4">รายการรายจ่าย</h4>
-                  <DataTable
-                    data={filteredExpenseRecords}
-                    columns={[
-                      {
-                        key: "date",
-                        header: "วันที่",
-                        render: (record: any) => format(new Date(record.date), "dd/MM/yyyy", { locale: th }),
-                      },
-                      { key: "category", header: "หมวดหมู่" },
-                      {
-                        key: "amount",
-                        header: "จำนวนเงิน",
-                        render: (record: any) => `฿${record.amount.toLocaleString()}`,
-                      },
-                    ]}
-                    emptyMessage="ไม่พบรายการรายจ่าย"
-                    itemsPerPage={5}
-                    showPagination={true}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {selectedReport === "payment-history" && (
-            <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-white">ประวัติการชำระเงิน</h3>
-              <DataTable
-                data={filteredPayments}
-                columns={tenantPaymentColumns}
-                emptyMessage="ไม่พบประวัติการชำระเงิน"
-                itemsPerPage={10}
-                showPagination={true}
-              />
-            </div>
-          )}
-
-          {selectedReport === "property-performance" && (
-            <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-white">ผลการดำเนินงานแต่ละห้อง</h3>
-              <DataTable
-                data={condos}
-                columns={propertyPerformanceColumns}
-                emptyMessage="ไม่พบข้อมูลคอนโด"
-                itemsPerPage={10}
-                showPagination={true}
-              />
-            </div>
-          )}
-
-          {selectedReport === "tenant-summary" && (
-            <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-white">สรุปผู้เช่า</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-                  <h4 className="text-lg font-medium text-white mb-4">ผู้เช่าปัจจุบัน</h4>
-                  <div className="space-y-2">
-                    {tenants
-                      .filter((t) => t.is_active)
-                      .map((tenant) => {
-                        const condo = condos.find((c) => c.id === tenant.condo_id)
-                        return (
-                          <div key={tenant.id} className="flex justify-between items-center">
-                            <span className="text-gray-300">{tenant.full_name}</span>
-                            <span className="text-sm text-gray-400">
-                              {condo?.name} ({condo?.room_number})
-                            </span>
-                          </div>
-                        )
-                      })}
-                  </div>
-                </div>
-
-                <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-                  <h4 className="text-lg font-medium text-white mb-4">ห้องว่าง</h4>
-                  <div className="space-y-2">
-                    {condos
-                      .filter((condo) => !tenants.some((t) => t.condo_id === condo.id && t.is_active))
-                      .map((condo) => (
-                        <div key={condo.id} className="flex justify-between items-center">
-                          <span className="text-gray-300">{condo.name}</span>
-                          <span className="text-sm text-gray-400">({condo.room_number})</span>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-
-                <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-                  <h4 className="text-lg font-medium text-white mb-4">สัญญาใกล้หมดอายุ</h4>
-                  <div className="space-y-2">
-                    {tenants
-                      .filter((tenant) => {
-                        const endDate = new Date(tenant.rental_end)
-                        const today = new Date()
-                        const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-                        return daysUntilExpiry <= 30 && daysUntilExpiry > 0 && tenant.is_active
-                      })
-                      .map((tenant) => {
-                        const endDate = new Date(tenant.rental_end)
-                        const today = new Date()
-                        const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-                        return (
-                          <div key={tenant.id} className="flex justify-between items-center">
-                            <span className="text-gray-300">{tenant.full_name}</span>
-                            <span className="text-sm text-yellow-400">{daysUntilExpiry} วัน</span>
-                          </div>
-                        )
-                      })}
-                  </div>
-                </div>
-              </div>
-            </div>
           )}
         </div>
       </div>

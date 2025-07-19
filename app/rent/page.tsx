@@ -294,6 +294,12 @@ export default function RentPage() {
         payment.paid_date ? new Date(payment.paid_date).toLocaleDateString("th-TH") : "-",
     },
     {
+      key: "notes",
+      header: "หมายเหตุ",
+      render: (payment: RentPayment) =>
+        payment.notes ? payment.notes : "-",
+    },
+    {
       key: "status",
       header: "สถานะ",
       render: (payment: RentPayment) => (
@@ -312,24 +318,32 @@ export default function RentPage() {
       header: "การดำเนินการ",
       render: (payment: RentPayment) => (
         <div className="flex space-x-2">
-          <button
-            onClick={() => handleOpenEditModal(payment)}
-            className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
-            title="แก้ไขรายการ"
-          >
-            <Edit className="h-4 w-4 mr-1" />
-            แก้ไข
-          </button>
-          {/* Add Delete Button */}
-          <button
-            onClick={() => handleDeleteClick(payment)}
-            className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
-            title="ลบรายการ"
-          >
-            <Trash className="h-4 w-4 mr-1" />
-            ลบ
-          </button>
+                  <button onClick={() => handleOpenEditModal(payment)} className="text-blue-400 hover:text-blue-300" title="แก้ไข">
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => handleDeleteClick(payment)} className="text-red-400 hover:text-red-300" title="ลบ">
+                    <X className="h-4 w-4" />
+                  </button>
         </div>
+        // <div className="flex space-x-2">
+        //   <button
+        //     onClick={() => handleOpenEditModal(payment)}
+        //     className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+        //     title="แก้ไขรายการ"
+        //   >
+        //     <Edit className="h-4 w-4 mr-1" />
+        //     แก้ไข
+        //   </button>
+        //   {/* Add Delete Button */}
+        //   <button
+        //     onClick={() => handleDeleteClick(payment)}
+        //     className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+        //     title="ลบรายการ"
+        //   >
+        //     <Trash className="h-4 w-4 mr-1" />
+        //     ลบ
+        //   </button>
+        // </div>
       ),
     },
   ]

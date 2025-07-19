@@ -129,7 +129,6 @@ export default function TenantHistoryPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-white flex items-center">
-              <History className="h-8 w-8 mr-3 text-green-500" />
               ประวัติผู้เช่า
             </h1>
             <p className="text-gray-400">ประวัติผู้เช่าทั้งหมดที่เคยอาศัยในคอนโดของคุณ</p>
@@ -248,6 +247,7 @@ export default function TenantHistoryPage() {
                       {getEndReasonText(selectedHistory.end_reason)}
                     </span>
                   </div>
+                  
                 </div>
               </div>
 

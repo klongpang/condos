@@ -301,14 +301,16 @@ export default function FinancialsPage() {
     {
       key: "date",
       header: "วันที่",
-      render: (record: IncomeRecord) => new Date(record.date).toLocaleDateString("th-TH"),
-    },
-    {
-      key: "condo_id",
-      header: "คอนโด",
-      render: (record: IncomeRecord) => {
+      render: (record: ExpenseRecord) => {
         const condo = condos.find((c) => c.id === record.condo_id)
-        return condo ? `${condo.name} (${condo.room_number})` : "ไม่ทราบ"
+        return (
+          <div>
+            <div className="font-medium">{new Date(record.date).toLocaleDateString("th-TH")}</div>
+            <div className="text-sm text-gray-400">
+              {condo ? `${condo.name} (${condo.room_number})` : "ไม่ทราบคอนโด"}
+            </div>
+          </div>
+        )
       },
     },
     {
@@ -329,6 +331,7 @@ export default function FinancialsPage() {
     {
       key: "description",
       header: "รายละเอียด",
+      render: (payment: any) => payment.description || "-",
     },
     {
       key: "actions",
@@ -362,14 +365,16 @@ export default function FinancialsPage() {
     {
       key: "date",
       header: "วันที่",
-      render: (record: ExpenseRecord) => new Date(record.date).toLocaleDateString("th-TH"),
-    },
-    {
-      key: "condo_id",
-      header: "คอนโด",
       render: (record: ExpenseRecord) => {
         const condo = condos.find((c) => c.id === record.condo_id)
-        return condo ? `${condo.name} (${condo.room_number})` : "ไม่ทราบ"
+        return (
+          <div>
+            <div className="font-medium">{new Date(record.date).toLocaleDateString("th-TH")}</div>
+            <div className="text-sm text-gray-400">
+              {condo ? `${condo.name} (${condo.room_number})` : "ไม่ทราบคอนโด"}
+            </div>
+          </div>
+        )
       },
     },
     {
@@ -390,6 +395,7 @@ export default function FinancialsPage() {
     {
       key: "description",
       header: "รายละเอียด",
+      render: (payment: any) => payment.description || "-",
     },
     {
       key: "actions",
