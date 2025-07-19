@@ -14,6 +14,7 @@ import { useRentPaymentsDB, useCondosDB, useTenantsDB, useDocumentsDB } from "@/
 import { useAuth } from "@/lib/auth-context"
 import type { RentPayment } from "@/lib/supabase"
 import { uploadDocument, deleteDocumentAction } from "@/app/actions/document-actions" // Import Server Actions
+import { NumericFormat } from 'react-number-format'
 
 export default function RentPage() {
   const { user } = useAuth()
@@ -43,6 +44,28 @@ export default function RentPage() {
   // Filter states
   const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>("")
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<"all" | "unpaid" | "paid" | "overdue">("all")
+  const [selectedYearFilter, setSelectedYearFilter] = useState('');
+  const [selectedMonthFilter, setSelectedMonthFilter] = useState('');
+
+  // ข้อมูลเดือนภาษาไทย
+  const months = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 
+    'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม',
+    'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+  ];
+
+  // เพิ่มรายการปีจากข้อมูล payments
+  const years = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - 5; // ย้อนหลัง 5 ปี
+    const endYear = currentYear + 1;   // หน้า 1 ปี
+    
+    const yearList = [];
+    for (let year = endYear; year >= startYear; year--) {
+      yearList.push(year);
+    }
+    return yearList;
+  }, []);
 
   // Notification state
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
@@ -88,17 +111,48 @@ export default function RentPage() {
     }
   }
 
-  // Filter payments based on selected condo and status
+  // Updated Filter payments based on selected filters including year and month
   const filteredPayments = useMemo(() => {
     let filtered = payments
+    
+    // กรองตามคอนโด
     if (selectedCondoFilter) {
       filtered = filtered.filter((p) => p.tenant?.condo_id === selectedCondoFilter)
     }
+    
+    // กรองตามสถานะ
     if (paymentStatusFilter !== "all") {
       filtered = filtered.filter((p) => p.status === paymentStatusFilter)
     }
+    
+    // กรองตามปี
+    if (selectedYearFilter) {
+      filtered = filtered.filter((p) => {
+        if (!p.due_date) return false
+        const paymentYear = new Date(p.due_date).getFullYear()
+        return paymentYear === parseInt(selectedYearFilter)
+      })
+    }
+    
+    // กรองตามเดือน
+    if (selectedMonthFilter) {
+      filtered = filtered.filter((p) => {
+        if (!p.due_date) return false
+        const paymentMonth = new Date(p.due_date).getMonth() + 1
+        return paymentMonth === parseInt(selectedMonthFilter)
+      })
+    }
+    
     return filtered
-  }, [payments, selectedCondoFilter, paymentStatusFilter])
+  }, [payments, selectedCondoFilter, paymentStatusFilter, selectedYearFilter, selectedMonthFilter])
+
+  // ฟังก์ชันล้างตัวกรองทั้งหมด
+  const clearAllFilters = () => {
+    setSelectedCondoFilter('')
+    setPaymentStatusFilter('all')
+    setSelectedYearFilter('')
+    setSelectedMonthFilter('')
+  }
 
   const handleOpenCreateModal = () => {
     setFormData({
@@ -282,9 +336,20 @@ export default function RentPage() {
       render: (payment: RentPayment) => {
         const dueDate = new Date(payment.due_date)
         const today = new Date()
+        const timeDiff = dueDate.getTime() - today.getTime()
+        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24))
+        
         const isOverdue = dueDate < today && payment.status !== "paid"
+        const isNearDue = daysDiff <= 7 && daysDiff > 0 && payment.status !== "paid"
 
-        return <div className={isOverdue ? "text-red-400" : ""}>{dueDate.toLocaleDateString("th-TH")}</div>
+        let textColor = ""
+        if (isOverdue) {
+          textColor = "text-red-400"
+        } else if (isNearDue) {
+          textColor = "text-yellow-400"
+        }
+
+        return <div className={textColor}>{dueDate.toLocaleDateString("th-TH")}</div>
       },
     },
     {
@@ -373,10 +438,10 @@ export default function RentPage() {
           </div>
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
           >
             <Plus className="h-4 w-4 mr-2" />
-            สร้างรายการชำระเงิน
+            เพิ่มรายการค่าเช่า
           </button>
         </div>
 
@@ -415,39 +480,78 @@ export default function RentPage() {
 
         {/* Filters */}
         <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-          <div className="flex items-center space-x-4">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <div>
-              <label className="text-sm font-medium text-gray-300 mr-2">คอนโด:</label>
-              <select
-                value={selectedCondoFilter}
-                onChange={(e) => setSelectedCondoFilter(e.target.value)}
-                className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">ทั้งหมด</option>
-                {condos.map((condo) => (
-                  <option key={condo.id} value={condo.id}>
-                    {condo.name} ({condo.room_number})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-300 mr-2">สถานะ:</label>
-              <select
-                value={paymentStatusFilter}
-                onChange={(e) => setPaymentStatusFilter(e.target.value as "all" | "unpaid" | "paid" | "overdue")}
-                className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="all">ทั้งหมด</option>
-                <option value="unpaid">ยังไม่ชำระ</option>
-                <option value="overdue">เกินกำหนด</option>
-                <option value="paid">ชำระแล้ว</option>
-              </select>
-            </div>
-            <span className="text-sm text-gray-400">พบ {filteredPayments.length} รายการ</span>
+        <div className="flex items-center flex-wrap gap-4">
+          <Filter className="h-5 w-5 text-gray-400" />
+          
+          {/* คอนโดฟิลเตอร์ */}
+          <div>
+            <label className="text-sm font-medium text-gray-300 mr-2">คอนโด:</label>
+            <select
+              value={selectedCondoFilter}
+              onChange={(e) => setSelectedCondoFilter(e.target.value)}
+              className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">ทั้งหมด</option>
+              {condos.map((condo) => (
+                <option key={condo.id} value={condo.id}>
+                  {condo.name} ({condo.room_number})
+                </option>
+              ))}
+            </select>
           </div>
+
+          {/* ปีฟิลเตอร์ */}
+          <div>
+            <label className="text-sm font-medium text-gray-300 mr-2">ปี:</label>
+            <select
+              value={selectedYearFilter}
+              onChange={(e) => setSelectedYearFilter(e.target.value)}
+              className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">ทั้งหมด</option>
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year + 543} {/* แสดงปี พ.ศ. */}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* เดือนฟิลเตอร์ */}
+          <div>
+            <label className="text-sm font-medium text-gray-300 mr-2">เดือน:</label>
+            <select
+              value={selectedMonthFilter}
+              onChange={(e) => setSelectedMonthFilter(e.target.value)}
+              className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">ทั้งหมด</option>
+              {months.map((month, index) => (
+                <option key={index} value={index + 1}>
+                  {month}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* สถานะฟิลเตอร์ */}
+          <div>
+            <label className="text-sm font-medium text-gray-300 mr-2">สถานะ:</label>
+            <select
+              value={paymentStatusFilter}
+              onChange={(e) => setPaymentStatusFilter(e.target.value as "all" | "unpaid" | "paid" | "overdue")}
+              className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="all">ทั้งหมด</option>
+              <option value="unpaid">ยังไม่ชำระ</option>
+              <option value="overdue">เกินกำหนด</option>
+              <option value="paid">ชำระแล้ว</option>
+            </select>
+          </div>
+
+          <span className="text-sm text-gray-400">พบ {filteredPayments.length} รายการ</span>
         </div>
+      </div>
 
         {/* Payments Table */}
         <DataTable
@@ -467,7 +571,7 @@ export default function RentPage() {
             setSelectedPayment(null)
             setUploadedFiles([])
           }}
-          title={selectedPayment ? "แก้ไขรายการชำระเงิน" : "สร้างรายการชำระเงิน"}
+          title={selectedPayment ? "แก้ไขรายการค่าเช่า" : "เพิ่มรายการค่าเช่า"}
           size="lg"
         >
           <form onSubmit={handleSavePayment} className="space-y-4">
@@ -505,12 +609,15 @@ export default function RentPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">จำนวนเงิน (บาท) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
+                <NumericFormat
+                  thousandSeparator=","
+                  decimalScale={2}
+                  fixedDecimalScale={true}
+                  allowNegative={false}
                   value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  onValueChange={(values) => {
+                    setFormData({ ...formData, amount: values.value })
+                  }}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder="0.00"
                 />
@@ -680,7 +787,7 @@ export default function RentPage() {
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isUploading}
               >
-                {isUploading ? "กำลังอัปโหลด..." : selectedPayment ? "แก้ไข" : "สร้างรายการ"}
+                {isUploading ? "กำลังอัปโหลด..." : selectedPayment ? "แก้ไข" : "เพิ่ม"}
               </button>
             </div>
           </form>

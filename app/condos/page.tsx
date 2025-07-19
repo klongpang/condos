@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth-context"
 import type { Condo } from "@/lib/supabase"
 import { useCondosDB, useDocumentsDB } from "@/lib/hooks/use-database"
 import { uploadDocument, deleteDocumentAction } from "@/app/actions/document-actions" // Import Server Actions
+import { NumericFormat } from 'react-number-format'
 
 export default function CondosPage() {
   const { user } = useAuth()
@@ -320,15 +321,19 @@ export default function CondosPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">ราคาซื้อ (บาท)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.purchase_price}
-                  onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-              </div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">ราคาซื้อ (บาท)</label>
+              <NumericFormat
+                thousandSeparator=","
+                decimalScale={2}
+                allowNegative={false}
+                value={formData.purchase_price}
+                onValueChange={(values) => {
+                  setFormData({ ...formData, purchase_price: values.value })
+                }}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="0.00"
+              />
+            </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">วันที่ซื้อ</label>
                 <input

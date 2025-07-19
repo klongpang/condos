@@ -130,3 +130,21 @@ export interface Document {
   document_type?: string
   created_at: string
 }
+
+export interface Notification {
+  id: string
+  user_id: string
+  type: "rent_due" | "rent_overdue" | "contract_expiring" | "maintenance" | "payment_received" | "system_alert"
+  title: string
+  message: string
+  date: string
+  is_read: boolean
+  priority: "high" | "medium" | "low"
+  tenant_id?: string
+  condo_id?: string
+  amount?: number
+  created_at: string
+  updated_at: string
+  tenant?: Tenant // Joined tenant data
+  condo?: Condo // Joined condo data
+}

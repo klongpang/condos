@@ -177,7 +177,7 @@ export default function DashboardPage() {
           />
         </div>
         <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-white">รายการรอชำระและค้างชำระเกินกำหนด</h2>
+          <h2 className="text-xl font-semibold text-white">รายการรอชำระและคงค้าง</h2>
           <DataTable
             data={recentUnpaidOverduePayments}
             columns={paymentColumns}
@@ -190,7 +190,7 @@ export default function DashboardPage() {
 
         {/* Recent Paid Payments Table */}
         <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-white">รายการชำระค่าเช่าล่าสุด</h2>
+          <h2 className="text-xl font-semibold text-white">รายการชำระค่าเช่า</h2>
           <DataTable
             data={recentPaidPayments}
             columns={paymentColumns}

@@ -6,105 +6,21 @@ import { MainLayout } from "@/components/layout/main-layout"
 import { DataTable } from "@/components/ui/data-table"
 import { Modal } from "@/components/ui/modal"
 import { useAuth } from "@/lib/auth-context"
-import { mockTenants, mockCondos } from "@/lib/mock-data"
-
-interface Notification {
-  id: string
-  type: "rent_due" | "rent_overdue" | "contract_expiring" | "maintenance" | "payment_received"
-  title: string
-  message: string
-  date: string
-  isRead: boolean
-  priority: "high" | "medium" | "low"
-  tenant_id?: string
-  condo_id?: string
-  amount?: number
-}
+import { useNotificationsDB, useCondosDB, useTenantsDB } from "@/lib/hooks/use-database"
 
 export default function NotificationsPage() {
   const { user } = useAuth()
+  const { notifications, loading, markAsRead, markAllAsRead, refetch } = useNotificationsDB(user?.id)
+  const { condos } = useCondosDB(user?.id)
+  const { tenants } = useTenantsDB(user?.id)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString())
   const [selectedMonth, setSelectedMonth] = useState("")
   const [selectedType, setSelectedType] = useState("")
   const [selectedPriority, setSelectedPriority] = useState("")
   const [isRead, setIsRead] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
+  const [selectedNotification, setSelectedNotification] = useState<any | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
-
-  // Mock notifications data
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: "1",
-      type: "rent_overdue",
-      title: "ค่าเช่าเกินกำหนด",
-      message: "คุณสมชาย ใจดี ค้างชำระค่าเช่าห้อง A-101 เป็นเวลา 5 วัน",
-      date: "2024-01-15T10:30:00Z",
-      isRead: false,
-      priority: "high",
-      tenant_id: "1",
-      condo_id: "1",
-      amount: 15000,
-    },
-    {
-      id: "2",
-      type: "contract_expiring",
-      title: "สัญญาใกล้หมดอายุ",
-      message: "สัญญาเช่าของคุณสมหญิง รักสะอาด ห้อง B-205 จะหมดอายุในอีก 15 วัน",
-      date: "2024-01-14T14:20:00Z",
-      isRead: false,
-      priority: "medium",
-      tenant_id: "2",
-      condo_id: "2",
-    },
-    {
-      id: "3",
-      type: "payment_received",
-      title: "ได้รับการชำระเงิน",
-      message: "ได้รับการชำระค่าเช่าจากคุณสมชาย ใจดี ห้อง A-101 จำนวน 15,000 บาท",
-      date: "2024-01-13T09:15:00Z",
-      isRead: true,
-      priority: "low",
-      tenant_id: "1",
-      condo_id: "1",
-      amount: 15000,
-    },
-    {
-      id: "4",
-      type: "rent_due",
-      title: "ค่าเช่าครบกำหนด",
-      message: "ค่าเช่าห้อง B-205 ครบกำหนดชำระในวันที่ 1 กุมภาพันธ์ 2024",
-      date: "2024-01-12T16:45:00Z",
-      isRead: true,
-      priority: "medium",
-      tenant_id: "2",
-      condo_id: "2",
-      amount: 12000,
-    },
-    {
-      id: "5",
-      type: "maintenance",
-      title: "แจ้งซ่อมบำรุง",
-      message: "ผู้เช่าห้อง A-101 แจ้งปัญหาเครื่องปรับอากาศเสีย",
-      date: "2024-01-11T11:30:00Z",
-      isRead: false,
-      priority: "high",
-      tenant_id: "1",
-      condo_id: "1",
-    },
-    {
-      id: "6",
-      type: "rent_overdue",
-      title: "ค่าเช่าเกินกำหนด",
-      message: "คุณสมหญิง รักสะอาด ค้างชำระค่าเช่าห้อง B-205 เป็นเวลา 2 วัน",
-      date: "2023-12-28T08:20:00Z",
-      isRead: true,
-      priority: "high",
-      tenant_id: "2",
-      condo_id: "2",
-      amount: 12000,
-    },
-  ])
 
   // Generate year options (current year and 2 years back)
   const currentYear = new Date().getFullYear()
@@ -127,7 +43,7 @@ export default function NotificationsPage() {
   ]
 
   // Filter notifications
-  const filteredNotifications = notifications.filter((notification) => {
+  const filteredNotifications = notifications?.filter((notification: any) => {
     const notificationDate = new Date(notification.date)
     const notificationYear = notificationDate.getFullYear().toString()
     const notificationMonth = (notificationDate.getMonth() + 1).toString()
@@ -136,7 +52,7 @@ export default function NotificationsPage() {
     const monthMatch = !selectedMonth || notificationMonth === selectedMonth
     const typeMatch = !selectedType || notification.type === selectedType
     const priorityMatch = !selectedPriority || notification.priority === selectedPriority
-    const readMatch = !isRead || (isRead === "read" ? notification.isRead : !notification.isRead)
+    const readMatch = !isRead || (isRead === "read" ? notification.is_read : !notification.is_read)
     const searchMatch =
       !searchTerm ||
       notification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -145,16 +61,12 @@ export default function NotificationsPage() {
     return yearMatch && monthMatch && typeMatch && priorityMatch && readMatch && searchMatch
   })
 
-  const markAsRead = (notificationId: string) => {
-    setNotifications((prev) =>
-      prev.map((notification) =>
-        notification.id === notificationId ? { ...notification, isRead: true } : notification,
-      ),
-    )
+  const handleMarkAsRead = async (notificationId: string) => {
+    await markAsRead(notificationId)
   }
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((notification) => ({ ...notification, isRead: true })))
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead()
   }
 
   const getTypeIcon = (type: string) => {
@@ -221,7 +133,7 @@ export default function NotificationsPage() {
     {
       key: "type",
       header: "ประเภท",
-      render: (notification: Notification) => (
+      render: (notification: any) => (
         <div className="flex items-center">
           {getTypeIcon(notification.type)}
           <span className="ml-2">{getTypeText(notification.type)}</span>
@@ -231,26 +143,28 @@ export default function NotificationsPage() {
     {
       key: "title",
       header: "หัวข้อ",
-      render: (notification: Notification) => (
-        <div className={`font-medium ${!notification.isRead ? "text-white" : "text-gray-300"}`}>
+      render: (notification: any) => (
+        <div className={`font-medium ${!notification.is_read ? "text-white" : "text-gray-300"}`}>
           {notification.title}
-          {!notification.isRead && <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full inline-block"></span>}
+          {!notification.is_read && <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full inline-block"></span>}
         </div>
       ),
     },
     {
       key: "message",
       header: "ข้อความ",
-      render: (notification: Notification) => (
+      render: (notification: any) => (
         <div className="max-w-md truncate text-gray-300" title={notification.message}>
           {notification.message}
+          {notification.tenant?.full_name && ` (ผู้เช่า: ${notification.tenant.full_name})`}
+          {notification.condo?.room_number && ` (ห้อง: ${notification.condo.room_number})`}
         </div>
       ),
     },
     {
       key: "priority",
       header: "ความสำคัญ",
-      render: (notification: Notification) => (
+      render: (notification: any) => (
         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(notification.priority)}`}>
           {getPriorityText(notification.priority)}
         </span>
@@ -259,7 +173,7 @@ export default function NotificationsPage() {
     {
       key: "date",
       header: "วันที่",
-      render: (notification: Notification) => (
+      render: (notification: any) => (
         <div className="text-sm">
           <div>{new Date(notification.date).toLocaleDateString("th-TH")}</div>
           <div className="text-gray-400">{new Date(notification.date).toLocaleTimeString("th-TH")}</div>
@@ -269,14 +183,14 @@ export default function NotificationsPage() {
     {
       key: "actions",
       header: "การดำเนินการ",
-      render: (notification: Notification) => (
+      render: (notification: any) => (
         <div className="flex space-x-2">
           <button
             onClick={() => {
               setSelectedNotification(notification)
               setIsModalOpen(true)
-              if (!notification.isRead) {
-                markAsRead(notification.id)
+              if (!notification.is_read) {
+                handleMarkAsRead(notification.id)
               }
             }}
             className="text-blue-400 hover:text-blue-300"
@@ -284,9 +198,9 @@ export default function NotificationsPage() {
           >
             <Eye className="h-4 w-4" />
           </button>
-          {!notification.isRead && (
+          {!notification.is_read && (
             <button
-              onClick={() => markAsRead(notification.id)}
+              onClick={() => handleMarkAsRead(notification.id)}
               className="text-green-400 hover:text-green-300"
               title="ทำเครื่องหมายว่าอ่านแล้ว"
             >
@@ -298,7 +212,7 @@ export default function NotificationsPage() {
     },
   ]
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length
+  const unreadCount = notifications?.filter((n: any) => !n.is_read).length || 0
 
   return (
     <MainLayout>
@@ -316,7 +230,7 @@ export default function NotificationsPage() {
             <p className="text-gray-400">จัดการการแจ้งเตือนและข้อความสำคัญ</p>
           </div>
           <button
-            onClick={markAllAsRead}
+            onClick={handleMarkAllAsRead}
             className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
             disabled={unreadCount === 0}
           >
@@ -424,12 +338,18 @@ export default function NotificationsPage() {
           </div>
 
           <div className="mt-4 text-sm text-gray-400">
-            พบ {filteredNotifications.length} รายการ จากทั้งหมด {notifications.length} รายการ
+            พบ {filteredNotifications?.length} รายการ จากทั้งหมด {notifications?.length} รายการ
           </div>
         </div>
 
         {/* Notifications Table */}
-        <DataTable data={filteredNotifications} columns={columns} emptyMessage="ไม่พบการแจ้งเตือน" itemsPerPage={10} />
+        <DataTable
+          data={filteredNotifications}
+          columns={columns}
+          loading={loading}
+          emptyMessage="ไม่พบการแจ้งเตือน"
+          itemsPerPage={10}
+        />
 
         {/* Notification Detail Modal */}
         <Modal
@@ -477,17 +397,14 @@ export default function NotificationsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-300">ผู้เช่า</label>
-                    <p className="text-white">
-                      {mockTenants.find((t) => t.id === selectedNotification.tenant_id)?.full_name || "ไม่ทราบ"}
-                    </p>
+                    <p className="text-white">{selectedNotification.tenant?.full_name || "ไม่ทราบ"}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-300">ห้อง</label>
                     <p className="text-white">
-                      {(() => {
-                        const condo = mockCondos.find((c) => c.id === selectedNotification.condo_id)
-                        return condo ? `${condo.name} (${condo.room_number})` : "ไม่ทราบ"
-                      })()}
+                      {selectedNotification.condo
+                        ? `${selectedNotification.condo.name} (${selectedNotification.condo.room_number})`
+                        : "ไม่ทราบ"}
                     </p>
                   </div>
                 </div>

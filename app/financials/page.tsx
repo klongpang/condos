@@ -1,5 +1,5 @@
 "use client"
-
+import { NumericFormat } from 'react-number-format'
 import type React from "react"
 import { useState, useMemo } from "react"
 import { Plus, TrendingUp, TrendingDown, DollarSign, Filter, Edit, FileText, X, Eye, Upload, File } from "lucide-react"
@@ -612,14 +612,17 @@ export default function FinancialsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">จำนวนเงิน *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
+                <label className="block text-sm font-medium text-gray-300 mb-1">จำนวนเงิน (บาท) *</label>
+                <NumericFormat
+                  thousandSeparator=","
+                  decimalScale={2}
+                  allowNegative={false}
                   value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  onValueChange={(values) => {
+                    setFormData({ ...formData, amount: values.value })
+                  }}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  placeholder="0.00"
                 />
               </div>
               <div>
