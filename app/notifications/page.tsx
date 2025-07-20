@@ -1,30 +1,48 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Bell, AlertTriangle, Calendar, Clock, Filter, Search, Eye, CheckCircle } from "lucide-react"
-import { MainLayout } from "@/components/layout/main-layout"
-import { DataTable } from "@/components/ui/data-table"
-import { Modal } from "@/components/ui/modal"
-import { useAuth } from "@/lib/auth-context"
-import { useNotificationsDB, useCondosDB, useTenantsDB } from "@/lib/hooks/use-database"
+import { useState } from "react";
+import {
+  Bell,
+  AlertTriangle,
+  Calendar,
+  Clock,
+  Filter,
+  Search,
+  Eye,
+  CheckCircle,
+} from "lucide-react";
+import { MainLayout } from "@/components/layout/main-layout";
+import { DataTable } from "@/components/ui/data-table";
+import { Modal } from "@/components/ui/modal";
+import { useAuth } from "@/lib/auth-context";
+import {
+  useNotificationsDB,
+  useCondosDB,
+  useTenantsDB,
+} from "@/lib/hooks/use-database";
 
 export default function NotificationsPage() {
-  const { user } = useAuth()
-  const { notifications, loading, markAsRead, markAllAsRead, refetch } = useNotificationsDB(user?.id)
-  const { condos } = useCondosDB(user?.id)
-  const { tenants } = useTenantsDB(user?.id)
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString())
-  const [selectedMonth, setSelectedMonth] = useState("")
-  const [selectedType, setSelectedType] = useState("")
-  const [selectedPriority, setSelectedPriority] = useState("")
-  const [isRead, setIsRead] = useState("")
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedNotification, setSelectedNotification] = useState<any | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const { user } = useAuth();
+  const { notifications, loading, markAsRead, markAllAsRead, refetch } =
+    useNotificationsDB(user?.id);
+  const { condos } = useCondosDB(user?.id);
+  const { tenants } = useTenantsDB(user?.id);
+  const [selectedYear, setSelectedYear] = useState(
+    new Date().getFullYear().toString()
+  );
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedType, setSelectedType] = useState("");
+  const [selectedPriority, setSelectedPriority] = useState("");
+  const [isRead, setIsRead] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedNotification, setSelectedNotification] = useState<any | null>(
+    null
+  );
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Generate year options (current year and 2 years back)
-  const currentYear = new Date().getFullYear()
-  const yearOptions = Array.from({ length: 3 }, (_, i) => currentYear - i)
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 3 }, (_, i) => currentYear - i);
 
   // Month options in Thai
   const monthOptions = [
@@ -40,94 +58,104 @@ export default function NotificationsPage() {
     { value: "10", label: "ตุลาคม" },
     { value: "11", label: "พฤศจิกายน" },
     { value: "12", label: "ธันวาคม" },
-  ]
+  ];
 
   // Filter notifications
   const filteredNotifications = notifications?.filter((notification: any) => {
-    const notificationDate = new Date(notification.date)
-    const notificationYear = notificationDate.getFullYear().toString()
-    const notificationMonth = (notificationDate.getMonth() + 1).toString()
+    const notificationDate = new Date(notification.date);
+    const notificationYear = notificationDate.getFullYear().toString();
+    const notificationMonth = (notificationDate.getMonth() + 1).toString();
 
-    const yearMatch = !selectedYear || notificationYear === selectedYear
-    const monthMatch = !selectedMonth || notificationMonth === selectedMonth
-    const typeMatch = !selectedType || notification.type === selectedType
-    const priorityMatch = !selectedPriority || notification.priority === selectedPriority
-    const readMatch = !isRead || (isRead === "read" ? notification.is_read : !notification.is_read)
+    const yearMatch = !selectedYear || notificationYear === selectedYear;
+    const monthMatch = !selectedMonth || notificationMonth === selectedMonth;
+    const typeMatch = !selectedType || notification.type === selectedType;
+    const priorityMatch =
+      !selectedPriority || notification.priority === selectedPriority;
+    const readMatch =
+      !isRead ||
+      (isRead === "read" ? notification.is_read : !notification.is_read);
     const searchMatch =
       !searchTerm ||
       notification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      notification.message.toLowerCase().includes(searchTerm.toLowerCase())
+      notification.message.toLowerCase().includes(searchTerm.toLowerCase());
 
-    return yearMatch && monthMatch && typeMatch && priorityMatch && readMatch && searchMatch
-  })
+    return (
+      yearMatch &&
+      monthMatch &&
+      typeMatch &&
+      priorityMatch &&
+      readMatch &&
+      searchMatch
+    );
+  });
 
   const handleMarkAsRead = async (notificationId: string) => {
-    await markAsRead(notificationId)
-  }
+    await markAsRead(notificationId);
+  };
 
   const handleMarkAllAsRead = async () => {
-    await markAllAsRead()
-  }
+    await markAllAsRead();
+  };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "rent_overdue":
-        return <AlertTriangle className="h-4 w-4 text-red-500" />
+        return <AlertTriangle className="h-4 w-4 text-red-500" />;
       case "rent_due":
-        return <Calendar className="h-4 w-4 text-yellow-500" />
+        return <Calendar className="h-4 w-4 text-yellow-500" />;
       case "contract_expiring":
-        return <Clock className="h-4 w-4 text-orange-500" />
+        return <Clock className="h-4 w-4 text-orange-500" />;
       case "payment_received":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
       case "maintenance":
-        return <AlertTriangle className="h-4 w-4 text-blue-500" />
+        return <AlertTriangle className="h-4 w-4 text-blue-500" />;
       default:
-        return <Bell className="h-4 w-4 text-gray-500" />
+        return <Bell className="h-4 w-4 text-gray-500" />;
     }
-  }
+  };
 
   const getTypeText = (type: string) => {
     switch (type) {
       case "rent_overdue":
-        return "ค่าเช่าเกินกำหนด"
+        return "ค่าเช่าเกินกำหนด";
       case "rent_due":
-        return "ค่าเช่าครบกำหนด"
+        return "ค่าเช่าครบกำหนด";
       case "contract_expiring":
-        return "สัญญาใกล้หมดอายุ"
+        return "สัญญาใกล้หมดอายุ";
       case "payment_received":
-        return "ได้รับการชำระเงิน"
+        return "ได้รับการชำระเงิน";
       case "maintenance":
-        return "แจ้งซ่อมบำรุง"
+        return "แจ้งซ่อมบำรุง";
       default:
-        return "การแจ้งเตือน"
+        return "การแจ้งเตือน";
     }
-  }
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "high":
-        return "bg-red-900 text-red-300"
+        return "bg-red-900 text-red-300";
       case "medium":
-        return "bg-yellow-900 text-yellow-300"
+        return "bg-yellow-900 text-yellow-300";
       case "low":
-        return "bg-green-900 text-green-300"
+        return "bg-green-900 text-green-300";
       default:
-        return "bg-gray-900 text-gray-300"
+        return "bg-gray-900 text-gray-300";
     }
-  }
+  };
 
   const getPriorityText = (priority: string) => {
     switch (priority) {
       case "high":
-        return "สูง"
+        return "สูง";
       case "medium":
-        return "ปานกลาง"
+        return "ปานกลาง";
       case "low":
-        return "ต่ำ"
+        return "ต่ำ";
       default:
-        return "ปกติ"
+        return "ปกติ";
     }
-  }
+  };
 
   const columns = [
     {
@@ -144,9 +172,15 @@ export default function NotificationsPage() {
       key: "title",
       header: "หัวข้อ",
       render: (notification: any) => (
-        <div className={`font-medium ${!notification.is_read ? "text-white" : "text-gray-300"}`}>
+        <div
+          className={`font-medium ${
+            !notification.is_read ? "text-white" : "text-gray-300"
+          }`}
+        >
           {notification.title}
-          {!notification.is_read && <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full inline-block"></span>}
+          {!notification.is_read && (
+            <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full inline-block"></span>
+          )}
         </div>
       ),
     },
@@ -154,10 +188,15 @@ export default function NotificationsPage() {
       key: "message",
       header: "ข้อความ",
       render: (notification: any) => (
-        <div className="max-w-md truncate text-gray-300" title={notification.message}>
+        <div
+          className="max-w-md truncate text-gray-300"
+          title={notification.message}
+        >
           {notification.message}
-          {notification.tenant?.full_name && ` (ผู้เช่า: ${notification.tenant.full_name})`}
-          {notification.condo?.room_number && ` (ห้อง: ${notification.condo.room_number})`}
+          {notification.tenant?.full_name &&
+            ` (ผู้เช่า: ${notification.tenant.full_name})`}
+          {notification.condo?.room_number &&
+            ` (ห้อง: ${notification.condo.room_number})`}
         </div>
       ),
     },
@@ -165,7 +204,11 @@ export default function NotificationsPage() {
       key: "priority",
       header: "ความสำคัญ",
       render: (notification: any) => (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(notification.priority)}`}>
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+            notification.priority
+          )}`}
+        >
           {getPriorityText(notification.priority)}
         </span>
       ),
@@ -176,7 +219,9 @@ export default function NotificationsPage() {
       render: (notification: any) => (
         <div className="text-sm">
           <div>{new Date(notification.date).toLocaleDateString("th-TH")}</div>
-          <div className="text-gray-400">{new Date(notification.date).toLocaleTimeString("th-TH")}</div>
+          <div className="text-gray-400">
+            {new Date(notification.date).toLocaleTimeString("th-TH")}
+          </div>
         </div>
       ),
     },
@@ -187,10 +232,10 @@ export default function NotificationsPage() {
         <div className="flex space-x-2">
           <button
             onClick={() => {
-              setSelectedNotification(notification)
-              setIsModalOpen(true)
+              setSelectedNotification(notification);
+              setIsModalOpen(true);
               if (!notification.is_read) {
-                handleMarkAsRead(notification.id)
+                handleMarkAsRead(notification.id);
               }
             }}
             className="text-blue-400 hover:text-blue-300"
@@ -210,9 +255,9 @@ export default function NotificationsPage() {
         </div>
       ),
     },
-  ]
+  ];
 
-  const unreadCount = notifications?.filter((n: any) => !n.is_read).length || 0
+  const unreadCount = notifications?.filter((n: any) => !n.is_read).length || 0;
 
   return (
     <MainLayout>
@@ -224,7 +269,9 @@ export default function NotificationsPage() {
               <Bell className="h-8 w-8 mr-3 text-green-500" />
               การแจ้งเตือน
               {unreadCount > 0 && (
-                <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">{unreadCount}</span>
+                <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                  {unreadCount}
+                </span>
               )}
             </h1>
             <p className="text-gray-400">จัดการการแจ้งเตือนและข้อความสำคัญ</p>
@@ -248,7 +295,9 @@ export default function NotificationsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">ปี</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                ปี
+              </label>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
@@ -264,7 +313,9 @@ export default function NotificationsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">เดือน</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                เดือน
+              </label>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
@@ -280,7 +331,9 @@ export default function NotificationsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">ประเภท</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                ประเภท
+              </label>
               <select
                 value={selectedType}
                 onChange={(e) => setSelectedType(e.target.value)}
@@ -296,7 +349,9 @@ export default function NotificationsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">ความสำคัญ</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                ความสำคัญ
+              </label>
               <select
                 value={selectedPriority}
                 onChange={(e) => setSelectedPriority(e.target.value)}
@@ -310,7 +365,9 @@ export default function NotificationsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">สถานะ</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                สถานะ
+              </label>
               <select
                 value={isRead}
                 onChange={(e) => setIsRead(e.target.value)}
@@ -323,7 +380,9 @@ export default function NotificationsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">ค้นหา</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                ค้นหา
+              </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
@@ -338,7 +397,8 @@ export default function NotificationsPage() {
           </div>
 
           <div className="mt-4 text-sm text-gray-400">
-            พบ {filteredNotifications?.length} รายการ จากทั้งหมด {notifications?.length} รายการ
+            พบ {filteredNotifications?.length} รายการ จากทั้งหมด{" "}
+            {notifications?.length} รายการ
           </div>
         </div>
 
@@ -355,8 +415,8 @@ export default function NotificationsPage() {
         <Modal
           isOpen={isModalOpen}
           onClose={() => {
-            setIsModalOpen(false)
-            setSelectedNotification(null)
+            setIsModalOpen(false);
+            setSelectedNotification(null);
           }}
           title="รายละเอียดการแจ้งเตือน"
           size="lg"
@@ -366,10 +426,14 @@ export default function NotificationsPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   {getTypeIcon(selectedNotification.type)}
-                  <span className="ml-2 text-lg font-medium text-white">{selectedNotification.title}</span>
+                  <span className="ml-2 text-lg font-medium text-white">
+                    {selectedNotification.title}
+                  </span>
                 </div>
                 <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(selectedNotification.priority)}`}
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+                    selectedNotification.priority
+                  )}`}
                 >
                   {getPriorityText(selectedNotification.priority)}
                 </span>
@@ -381,14 +445,24 @@ export default function NotificationsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">ประเภท</label>
-                  <p className="text-white">{getTypeText(selectedNotification.type)}</p>
+                  <label className="block text-sm font-medium text-gray-300">
+                    ประเภท
+                  </label>
+                  <p className="text-white">
+                    {getTypeText(selectedNotification.type)}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">วันที่และเวลา</label>
+                  <label className="block text-sm font-medium text-gray-300">
+                    วันที่และเวลา
+                  </label>
                   <p className="text-white">
-                    {new Date(selectedNotification.date).toLocaleDateString("th-TH")}{" "}
-                    {new Date(selectedNotification.date).toLocaleTimeString("th-TH")}
+                    {new Date(selectedNotification.date).toLocaleDateString(
+                      "th-TH"
+                    )}{" "}
+                    {new Date(selectedNotification.date).toLocaleTimeString(
+                      "th-TH"
+                    )}
                   </p>
                 </div>
               </div>
@@ -396,11 +470,17 @@ export default function NotificationsPage() {
               {selectedNotification.tenant_id && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300">ผู้เช่า</label>
-                    <p className="text-white">{selectedNotification.tenant?.full_name || "ไม่ทราบ"}</p>
+                    <label className="block text-sm font-medium text-gray-300">
+                      ผู้เช่า
+                    </label>
+                    <p className="text-white">
+                      {selectedNotification.tenant?.full_name || "ไม่ทราบ"}
+                    </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300">ห้อง</label>
+                    <label className="block text-sm font-medium text-gray-300">
+                      ห้อง
+                    </label>
                     <p className="text-white">
                       {selectedNotification.condo
                         ? `${selectedNotification.condo.name} (${selectedNotification.condo.room_number})`
@@ -412,18 +492,22 @@ export default function NotificationsPage() {
 
               {selectedNotification.amount && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-300">จำนวนเงิน</label>
-                  <p className="text-white text-lg font-medium">฿{selectedNotification.amount.toLocaleString()}</p>
+                  <label className="block text-sm font-medium text-gray-300">
+                    จำนวนเงิน
+                  </label>
+                  <p className="text-white text-lg font-medium">
+                    ฿{selectedNotification.amount.toLocaleString()}
+                  </p>
                 </div>
               )}
 
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   onClick={() => {
-                    setIsModalOpen(false)
-                    setSelectedNotification(null)
+                    setIsModalOpen(false);
+                    setSelectedNotification(null);
                   }}
-                  className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+                  className="px-4 py-2 bg-red-500 hover:bg-red-700 text-white rounded-lg transition-colors"
                 >
                   ปิด
                 </button>
@@ -433,5 +517,5 @@ export default function NotificationsPage() {
         </Modal>
       </div>
     </MainLayout>
-  )
+  );
 }

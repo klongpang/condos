@@ -20,73 +20,65 @@ export function useCondosDB(userId?: string) {
   const [error, setError] = useState<string | null>(null)
 
   const fetchCondos = async () => {
-    if (!userId) {
-      setCondos([])
-      setLoading(false)
-      return
-    }
-
+    if (!userId) return setLoading(false)
     try {
       setLoading(true)
       const data = await condoService.getByUserId(userId)
       setCondos(data)
       setError(null)
     } catch (err) {
+      console.error("Fetch condos error:", err)
       setError("Failed to fetch condos")
-      console.error("Error fetching condos:", err)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchCondos()
-  }, [userId])
+  useEffect(() => { fetchCondos() }, [userId])
 
   const addCondo = async (condoData: Omit<Condo, "id" | "created_at">) => {
     try {
       const newCondo = await condoService.create(condoData)
-      if (newCondo) {
-        setCondos((prev) => [newCondo, ...prev])
-        return newCondo
-      }
+      if (newCondo) setCondos(prev => [newCondo, ...prev])
+      return newCondo
     } catch (err) {
+      console.error("Add condo error:", err)
       setError("Failed to add condo")
-      console.error("Error adding condo:", err)
+      return null
     }
-    return null
   }
 
   const updateCondo = async (id: string, updates: Partial<Condo>) => {
     try {
-      const updatedCondo = await condoService.update(id, updates)
-      if (updatedCondo) {
-        setCondos((prev) => prev.map((c) => (c.id === id ? updatedCondo : c)))
-        return updatedCondo
+      const updated = await condoService.update(id, updates)
+      if (updated) {
+        setCondos(prev => prev.map(c => (c.id === id ? updated : c)))
+        return updated
       }
     } catch (err) {
+      console.error("Update condo error:", err)
       setError("Failed to update condo")
-      console.error("Error updating condo:", err)
     }
     return null
   }
 
   const deleteCondo = async (id: string) => {
     try {
-      const success = await condoService.delete(id)
-      if (success) {
-        setCondos((prev) => prev.filter((c) => c.id !== id))
+      const ok = await condoService.delete(id)
+      if (ok) {
+        setCondos(prev => prev.filter(c => c.id !== id))
         return true
       }
     } catch (err) {
+      console.error("Delete condo error:", err)
       setError("Failed to delete condo")
-      console.error("Error deleting condo:", err)
     }
     return false
   }
 
   return { condos, loading, error, addCondo, updateCondo, deleteCondo, refetch: fetchCondos }
 }
+
 
 // Custom hook for tenants with real database
 export function useTenantsDB(userId?: string) {
