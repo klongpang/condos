@@ -321,12 +321,13 @@ export default function CondosPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">ราคาซื้อ (บาท)</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">ราคาซื้อ (บาท) *</label>
               <NumericFormat
                 thousandSeparator=","
                 decimalScale={2}
                 allowNegative={false}
                 value={formData.purchase_price}
+                required
                 onValueChange={(values) => {
                   setFormData({ ...formData, purchase_price: values.value })
                 }}
@@ -335,9 +336,10 @@ export default function CondosPage() {
               />
             </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">วันที่ซื้อ</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">วันที่ซื้อ *</label>
                 <input
                   type="date"
+                  required
                   value={formData.purchase_date}
                   onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -524,7 +526,7 @@ export default function CondosPage() {
         </Modal>
 
         {/* Delete Confirmation Modal */}
-        <ConfirmationModal
+        {/* <ConfirmationModal
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}
           onConfirm={confirmDelete}
@@ -533,7 +535,7 @@ export default function CondosPage() {
           confirmText="ปิดใช้งาน"
           cancelText="ยกเลิก"
           type="warning"
-        />
+        /> */}
       </div>
     </MainLayout>
   )

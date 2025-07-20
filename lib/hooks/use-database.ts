@@ -421,35 +421,67 @@ export function useTenantHistoryDB(userId?: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchHistory = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
-      const allHistory = await tenantHistoryService.getAll()
-      let filteredData = allHistory
+      setError(null)
 
-      if (userId) {
-        const userCondos = await condoService.getByUserId(userId)
-        const userCondoIds = userCondos.map((c) => c.id)
-        filteredData = allHistory.filter((h) => userCondoIds.includes(h.condo_id))
+      if (!userId) {
+        setTenantHistory([])
+        return
       }
 
-      setTenantHistory(filteredData)
-      setError(null)
+      // 1. ดึง condo_ids ของ user ปัจจุบันจากตาราง condos
+      const { data: condos, error: condoError } = await supabase
+        .from("condos")
+        .select("id")
+        .eq("user_id", userId) // ใช้ user_id ตามโครงสร้างของคุณ
+
+      if (condoError) throw condoError
+
+      if (!condos || condos.length === 0) {
+        setTenantHistory([])
+        return
+      }
+
+      const condoIds = condos.map(c => c.id)
+
+      // 2. ดึง tenant_history ที่มี condo_id ตรงกับ condo ของ user
+      const { data, error: historyError } = await supabase
+        .from("tenant_history")
+        .select(`
+          *,
+          condo:condos(*)
+        `)
+        .in("condo_id", condoIds)
+        .order("moved_out_at", { ascending: false })
+
+      if (historyError) throw historyError
+
+      setTenantHistory(data || [])
     } catch (err) {
-      setError("Failed to fetch tenant history")
       console.error("Error fetching tenant history:", err)
+      setError("ไม่สามารถโหลดประวัติผู้เช่าได้")
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    fetchHistory()
   }, [userId])
 
-  return { tenantHistory, loading, error, refetch: fetchHistory }
-}
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
 
+  const refresh = useCallback(() => {
+    fetchData()
+  }, [fetchData])
+
+  return {
+    tenantHistory,
+    loading,
+    error,
+    refresh
+  }
+}
 // Custom hook for documents with real database
 export function useDocumentsDB(condoId?: string, tenantId?: string) {
   const [documents, setDocuments] = useState<Document[]>([])

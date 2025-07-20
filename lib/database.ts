@@ -391,6 +391,27 @@ export const tenantHistoryService = {
 
     return error ? null : data
   },
+  async getByUserCondos(userId: string): Promise<TenantHistory[]> {
+    // 1. ดึง condo_ids ของ user จากคอลัมน์ user_id
+    const { data: condos, error: condoError } = await supabase
+      .from('condos')
+      .select('id')
+      .eq('user_id', userId) // เปลี่ยนจาก owner_id เป็น user_id
+      
+    if (condoError || !condos?.length) return []
+
+    // 2. ดึง tenant_history โดยใช้ condo_ids
+    const { data, error } = await supabase
+      .from('tenant_history')
+      .select(`
+        *,
+        condo:condos(*)
+      `)
+      .in('condo_id', condos.map(c => c.id))
+      .order("moved_out_at", { ascending: false })
+
+    return error ? [] : data
+  }
 }
 
 export const documentService = {

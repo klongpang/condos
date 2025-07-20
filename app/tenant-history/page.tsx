@@ -14,7 +14,7 @@ import type { TenantHistory } from "@/lib/supabase"
 export default function TenantHistoryPage() {
   const { user } = useAuth()
   const { condos } = useCondosDB(user?.id)
-  const { tenantHistory, loading } = useTenantHistoryDB()
+  const { tenantHistory, loading, error, refresh } = useTenantHistoryDB(user?.id)
   const [selectedHistory, setSelectedHistory] = useState<TenantHistory | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedCondo, setSelectedCondo] = useState<string>("")
