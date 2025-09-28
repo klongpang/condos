@@ -509,6 +509,7 @@ export default function FinancialsPage() {
     "ค่าบำรุงรักษา",
     "ค่าน้ำ/ไฟ",
     "ค่าประกัน",
+    "ค่านายหน้า",
     "ภาษีทรัพย์สิน",
     "ค่าบริหารจัดการ",
     "อื่นๆ",
@@ -794,7 +795,7 @@ export default function FinancialsPage() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 bg-red-500 hover:bg-red-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
               >
                 ยกเลิก
               </button>
@@ -806,8 +807,7 @@ export default function FinancialsPage() {
                     : "bg-red-600 hover:bg-red-700"
                 }`}
               >
-                {editingRecord ? "อัปเดต" : "เพิ่ม"}
-                {recordType === "income" ? "รายรับ" : "รายจ่าย"}
+                {editingRecord ? "บันทึก" : "บันทึก"}
               </button>
             </div>
           </form>
@@ -988,7 +988,7 @@ export default function FinancialsPage() {
                   setUploadedFiles([]);
                   setDocumentType("");
                 }}
-                className="px-4 py-2 bg-red-500 hover:bg-red-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
               >
                 ยกเลิก
               </button>
@@ -1001,7 +1001,7 @@ export default function FinancialsPage() {
               >
                 {isUploading
                   ? "กำลังอัปโหลด..."
-                  : `อัปโหลดไฟล์ (${uploadedFiles.length})`}
+                  : `บันทึก (${uploadedFiles.length})`}
               </button>
             </div>
           </div>

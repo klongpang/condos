@@ -268,7 +268,6 @@ export default function CondosPage() {
       key: "room_number",
       header: "หมายเลขห้อง",
     },
-  
 
     {
       key: "purchase_price",
@@ -560,7 +559,7 @@ export default function CondosPage() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 bg-red-500 hover:bg-red-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
               >
                 ยกเลิก
               </button>
@@ -569,7 +568,7 @@ export default function CondosPage() {
                 type="submit"
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
               >
-                {editingCondo ? "อัปเดต" : "บันทึก"}
+                {editingCondo ? "บันทึก" : "บันทึก"}
               </button>
             </div>
           </form>
@@ -742,7 +741,7 @@ export default function CondosPage() {
                   setUploadedFiles([]);
                   setDocumentType("");
                 }}
-                className="px-4 py-2 bg-red-500 hover:bg-red-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
               >
                 ยกเลิก
               </button>
@@ -755,7 +754,7 @@ export default function CondosPage() {
               >
                 {isUploading
                   ? "กำลังอัปโหลด..."
-                  : `อัปโหลดไฟล์ (${uploadedFiles.length})`}
+                  : `บันทึก (${uploadedFiles.length})`}
               </button>
             </div>
           </div>

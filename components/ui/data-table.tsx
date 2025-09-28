@@ -32,6 +32,72 @@ export function DataTable<T extends Record<string, any>>({
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedData = showPagination ? data.slice(startIndex, startIndex + itemsPerPage) : data
 
+  /**
+   * สร้างรายการหมายเลขหน้าที่จะแสดง โดยซ่อนตัวเลขตรงกลางด้วย '...'
+   * และทำให้การแสดงผลมีความเสถียรเมื่อเลื่อนหน้า
+   */
+  const getPageNumbers = (totalPages: number, currentPage: number): (number | '...')[] => {
+    // กำหนดค่าคงที่สำหรับการแสดงผล
+    const MAX_VISIBLE_PAGES = 5; 
+    const SIBLING_COUNT = 1; // จำนวนหน้าที่จะแสดงรอบหน้าปัจจุบัน (เช่น ...4, 5, 6...)
+    const FIRST_LAST_COUNT = 2; // จำนวนหน้าแรกและหน้าสุดท้ายที่จะแสดง (เช่น 1, 2, ... N-1, N)
+
+    if (totalPages <= MAX_VISIBLE_PAGES) {
+      // ถ้าจำนวนหน้าน้อย ให้แสดงทั้งหมด
+      return Array.from({ length: totalPages }, (_, i) => i + 1)
+    }
+
+    const pages: (number | '...')[] = []
+    
+    // 1. ส่วนหน้า: [1, 2]
+    for (let i = 1; i <= FIRST_LAST_COUNT; i++) {
+        pages.push(i);
+    }
+
+    // คำนวณขอบเขตของชุดตัวเลขตรงกลาง
+    let start = Math.max(FIRST_LAST_COUNT + 1, currentPage - SIBLING_COUNT);
+    let end = Math.min(totalPages - FIRST_LAST_COUNT, currentPage + SIBLING_COUNT);
+
+    // 2. ส่วนกลาง: เพิ่ม '...' ก่อน ถ้าจำเป็น
+    if (start > FIRST_LAST_COUNT + 1) {
+        pages.push('...');
+    } else if (currentPage > FIRST_LAST_COUNT) {
+        start = FIRST_LAST_COUNT + 1;
+    }
+    
+    // เพิ่มหน้าปัจจุบันและหน้าที่อยู่รอบข้าง
+    for (let i = start; i <= end; i++) {
+        // ป้องกันการซ้ำซ้อนกับหน้าแรก
+        if (i > FIRST_LAST_COUNT && i < totalPages - FIRST_LAST_COUNT + 1) {
+            pages.push(i);
+        }
+    }
+    
+    // 3. ส่วนหลัง: เพิ่ม '...' หลัง ถ้าจำเป็น
+    if (end < totalPages - FIRST_LAST_COUNT) {
+      if (pages[pages.length - 1] !== '...') {
+        pages.push('...');
+      }
+    } else if (currentPage <= totalPages - FIRST_LAST_COUNT) {
+        end = totalPages - FIRST_LAST_COUNT;
+    }
+
+    // 4. ส่วนท้าย: [N-1, N]
+    for (let i = totalPages - FIRST_LAST_COUNT + 1; i <= totalPages; i++) {
+        // ป้องกันการซ้ำซ้อน
+        if (i > (pages[pages.length - 1] as number)) {
+            pages.push(i);
+        } else if (i === totalPages && !pages.includes(i)) {
+             pages.push(i);
+        }
+    }
+    
+    // กรอง '...' ซ้ำซ้อน
+    return pages.filter((page, index) => !(page === '...' && pages[index - 1] === '...'))
+  }
+
+  const pagesToDisplay = getPageNumbers(totalPages, currentPage)
+
   if (loading) {
     return (
       <div className="bg-gray-800 rounded-lg border border-gray-700">
@@ -82,6 +148,7 @@ export function DataTable<T extends Record<string, any>>({
           </tbody>
         </table>
       </div>
+      {/* แก้ไข: ลบเงื่อนไข totalPages > 1 ออก เพื่อให้แสดง pagination เสมอหากมีข้อมูลและ showPagination เป็น true */}
       {showPagination && (
         <div className="px-4 py-3 flex items-center justify-between border-t border-gray-700 sm:px-6">
           <div className="flex-1 flex justify-between sm:hidden">
@@ -94,7 +161,7 @@ export function DataTable<T extends Record<string, any>>({
             </button>
             <button
               onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages} // เงื่อนไขนี้ยังคงถูกต้อง
               className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-700 text-sm font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700"
             >
               Next
@@ -130,19 +197,32 @@ export function DataTable<T extends Record<string, any>>({
                     />
                   </svg>
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    aria-current={currentPage === page ? "page" : undefined}
-                    className={`${currentPage === page ? "z-10 bg-gray-700 border-green-500 text-green-500" : "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700"} relative inline-flex items-center px-4 py-2 border text-sm font-medium`}
-                  >
-                    {page}
-                  </button>
+                {pagesToDisplay.map((page, index) => (
+                  page === '...' ? (
+                    <span
+                      key={`ellipsis-${index}`}
+                      className="relative inline-flex items-center px-4 py-2 border border-gray-700 bg-gray-800 text-sm font-medium text-gray-300"
+                    >
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page as number)}
+                      aria-current={currentPage === page ? "page" : undefined}
+                      className={`${
+                        currentPage === page
+                          ? "z-10 bg-gray-700 border-green-500 text-green-500"
+                          : "bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700"
+                      } relative inline-flex items-center px-4 py-2 border text-sm font-medium`}
+                    >
+                      {page}
+                    </button>
+                  )
                 ))}
                 <button
                   onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
+                  disabled={currentPage === totalPages} // เงื่อนไขนี้ยังคงถูกต้อง
                   className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-700 bg-gray-800 text-sm font-medium text-gray-300 hover:bg-gray-700"
                 >
                   <span className="sr-only">Next</span>
