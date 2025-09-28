@@ -1,7 +1,7 @@
 "use client";
 import { NumericFormat } from "react-number-format";
 import type React from "react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Plus,
   TrendingUp,
@@ -25,6 +25,7 @@ import {
   useFinancialRecordsDB,
   useCondosDB,
   useDocumentsDB,
+  useTenantsDB,
 } from "@/lib/hooks/use-database";
 import { useAuth } from "@/lib/auth-context";
 import type { IncomeRecord, ExpenseRecord } from "@/lib/supabase";
@@ -36,6 +37,7 @@ import {
 export default function FinancialsPage() {
   const { user } = useAuth();
   const { condos } = useCondosDB(user?.id); // ดึงเฉพาะ condos ของ user นั้นๆ
+  const { tenants } = useTenantsDB(user?.id);
   const {
     incomeRecords,
     expenseRecords,
@@ -47,6 +49,16 @@ export default function FinancialsPage() {
     deleteIncomeRecord,
     deleteExpenseRecord,
   } = useFinancialRecordsDB(user?.id); // ดึงข้อมูลการเงินที่เกี่ยวข้องกับ user
+  const pickTenantIdForCondo = useCallback(
+    (condoId?: string) => {
+      if (!condoId) return "";
+      const active = tenants.find((t) => t.condo_id === condoId && (t as any).is_active);
+      if (active) return active.id;
+      const anyone = tenants.find((t) => t.condo_id === condoId);
+      return anyone?.id || "";
+    },
+    [tenants]
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [recordType, setRecordType] = useState<"income" | "expense">("income");
   const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>(""); // Filter state for condo
@@ -68,11 +80,20 @@ export default function FinancialsPage() {
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
   const [selectedFinancialRecordForFile, setSelectedFinancialRecordForFile] =
     useState<IncomeRecord | ExpenseRecord | null>(null);
-  const {
-    documents,
-    loading: documentsLoading,
-    refetch: refetchDocuments,
-  } = useDocumentsDB(selectedFinancialRecordForFile?.condo_id);
+  // ช่วยคำนวณ flag ให้อ่านง่าย (optional)
+  const isIncome = recordType === "income" && !!selectedFinancialRecordForFile
+  const isExpense = recordType === "expense" && !!selectedFinancialRecordForFile
+
+  const { documents, loading: documentsLoading, refetch: refetchDocuments } = useDocumentsDB({
+    incomeId:  isIncome  ? (selectedFinancialRecordForFile as IncomeRecord).id  : undefined,
+    expenseId: isExpense ? (selectedFinancialRecordForFile as ExpenseRecord).id : undefined,
+    scope:     isIncome ? "income" : isExpense ? "expense" : "any",
+    // ถ้าต้องการให้ลิสต์ใน modal ตรงกับประเภทที่เลือกเท่านั้น ให้กรองด้วย:
+    // documentType: documentType || undefined,   // (ใส่เฉพาะเวลาที่ผู้ใช้เลือกแล้ว)
+  });
+
+
+
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [documentType, setDocumentType] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
@@ -86,9 +107,17 @@ export default function FinancialsPage() {
     name: string;
   } | null>(null);
 
+  const [isDocDeleteModalOpen, setIsDocDeleteModalOpen] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<{
+    id: string;
+    fileUrl: string; // ส่งเป็น string เสมอ ตามพฤติกรรมเดิม
+    name: string;
+  } | null>(null);
+
   const [formData, setFormData] = useState({
     id: "", // For editing
     condo_id: "",
+    tenant_id: "",
     type: "",
     amount: "",
     date: "",
@@ -101,6 +130,7 @@ export default function FinancialsPage() {
 
     const recordData = {
       condo_id: formData.condo_id,
+      tenant_id: formData.tenant_id || undefined,
       type: formData.type,
       amount: Number.parseFloat(formData.amount),
       date: formData.date,
@@ -115,23 +145,19 @@ export default function FinancialsPage() {
         } else {
           await updateExpenseRecord(editingRecord.id, recordData);
         }
-        alert(`อัปเดต${recordType === "income" ? "รายรับ" : "รายจ่าย"}สำเร็จ`);
+        setNotification({ message: `บันทึกสำเร็จ`, type: "success" });
       } else {
         if (recordType === "income") {
           await addIncomeRecord(recordData);
         } else {
           await addExpenseRecord(recordData);
         }
-        alert(`บันทึก${recordType === "income" ? "รายรับ" : "รายจ่าย"}สำเร็จ`);
+        setNotification({ message: `บันทึกสำเร็จ`, type: "success" });
       }
       resetForm();
     } catch (error) {
       console.error(`Error saving ${recordType} record:`, error);
-      alert(
-        `เกิดข้อผิดพลาดในการบันทึก${
-          recordType === "income" ? "รายรับ" : "รายจ่าย"
-        }`
-      );
+      setNotification({ message: `บันทึกเกิดข้อผิดพลาด`, type: "error" });
     }
   };
 
@@ -139,6 +165,7 @@ export default function FinancialsPage() {
     setFormData({
       id: "",
       condo_id: "",
+      tenant_id: "",
       type: "",
       amount: "",
       date: "",
@@ -154,11 +181,14 @@ export default function FinancialsPage() {
     record?: IncomeRecord | ExpenseRecord
   ) => {
     setRecordType(type);
+
     if (record) {
+      // แก้ไข: ใช้ tenant_id จาก record เดิม (ถ้ามี)
       setEditingRecord(record);
       setFormData({
         id: record.id,
         condo_id: record.condo_id,
+        tenant_id: (record as any).tenant_id || pickTenantIdForCondo(record.condo_id), // ✅ auto fill
         type: record.type,
         amount: record.amount.toString(),
         date: record.date,
@@ -166,10 +196,13 @@ export default function FinancialsPage() {
         category: record.category || "",
       });
     } else {
+      // เพิ่มใหม่: auto เลือก condo+tenant เริ่มต้น
+      const defaultCondoId = condos.length > 0 ? condos[0].id : "";
       setEditingRecord(null);
       setFormData({
         id: "",
-        condo_id: condos.length > 0 ? condos[0].id : "", // Set default condo if available
+        condo_id: defaultCondoId,
+        tenant_id: pickTenantIdForCondo(defaultCondoId), // ✅ auto fill
         type: "",
         amount: "",
         date: new Date().toISOString().split("T")[0],
@@ -177,8 +210,11 @@ export default function FinancialsPage() {
         category: "",
       });
     }
+
     setIsModalOpen(true);
   };
+
+
 
   // Filter records based on selected condo, year, and month
   const filteredIncomeRecords = useMemo(() => {
@@ -232,12 +268,13 @@ export default function FinancialsPage() {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const openFileModal = (record: IncomeRecord | ExpenseRecord) => {
+  const openFileModal = (record: IncomeRecord | ExpenseRecord, type: "income" | "expense") => {
+    setRecordType(type);                            // ✅ สำคัญ: เซ็ตชนิดให้ตรง
     setSelectedFinancialRecordForFile(record);
     setUploadedFiles([]);
     setDocumentType("");
     setIsFileModalOpen(true);
-    refetchDocuments(); // Refetch documents when opening modal
+    refetchDocuments();
   };
 
   const handleFileSubmit = async () => {
@@ -251,57 +288,82 @@ export default function FinancialsPage() {
     }
     if (!selectedFinancialRecordForFile) return;
 
+    const isIncome = recordType === "income";
+
     setIsUploading(true);
     try {
-      // IMPORTANT: The current 'documents' table schema only links to condo_id or tenant_id.
-      // To link directly to financial records, the 'documents' table would need new columns
-      // like 'income_record_id' or 'expense_record_id'.
-      // For this demo, we'll link to the condo_id of the financial record.
       for (const file of uploadedFiles) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("condoId", selectedFinancialRecordForFile.condo_id); // Linking to condo_id as per current schema
-        formData.append("documentType", documentType);
-        // If documents table supported record_id, you'd add:
-        // formData.append("recordId", selectedFinancialRecordForFile.id);
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("documentType", documentType);
 
-        const result = await uploadDocument(formData);
+        // เก็บ condo_id เสมอ (มีใน record)
+        fd.append("condoId", selectedFinancialRecordForFile.condo_id);
+
+        // ✅ tenant_id มาจาก record ตรง ๆ
+        const tid = (selectedFinancialRecordForFile as any).tenant_id;
+        if (tid) fd.append("tenantId", tid);
+
+        // ✅ สำคัญ: แยกตามประเภท
+        if (isIncome) {
+          fd.append("incomeId", selectedFinancialRecordForFile.id);
+        } else {
+          fd.append("expenseId", selectedFinancialRecordForFile.id);
+        }
+
+        const result = await uploadDocument(fd);
         if (!result.success) {
           throw new Error(result.message);
         }
       }
-      alert(
-        `อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์ไปยังคอนโดที่เกี่ยวข้อง`
-      );
+
+      setNotification({ message: `อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`, type: "success" });
       setUploadedFiles([]);
       setDocumentType("");
       setIsFileModalOpen(false);
-      refetchDocuments(); // Refetch documents after successful upload
+      refetchDocuments();
     } catch (error: any) {
       console.error("Error uploading files:", error);
-      alert(`เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ${error.message}`);
+      setNotification({ message: `เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ${error.message}`, type: "error" });
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleDocumentDelete = async (
+
+  const handleDocumentDelete = (
     docId: string,
     fileUrl: string,
     docName: string
   ) => {
-    if (window.confirm(`คุณต้องการลบเอกสาร "${docName}" หรือไม่?`)) {
-      try {
-        const result = await deleteDocumentAction(docId, fileUrl);
-        if (!result.success) {
-          throw new Error(result.message);
-        }
-        alert(`เอกสาร "${docName}" ถูกลบแล้ว`);
-        refetchDocuments(); // Refetch documents after successful deletion
-      } catch (error: any) {
-        console.error("Error deleting document:", error);
-        alert(`เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`);
+    setDocToDelete({ id: docId, fileUrl, name: docName });
+    setIsDocDeleteModalOpen(true);
+  };
+
+  const confirmDocDelete = async () => {
+    if (!docToDelete) return;
+    try {
+      const result = await deleteDocumentAction(
+        docToDelete.id,
+        docToDelete.fileUrl || "" // บังคับส่ง string เสมอ
+      );
+      if (!result.success) {
+        throw new Error(result.message);
       }
+      setNotification({
+        message: `เอกสาร "${docToDelete.name}" ถูกลบแล้ว`,
+        type: "success",
+      });
+      refetchDocuments();
+    } catch (error: any) {
+      console.error("Error deleting document:", error);
+      setNotification({
+        message: `เกิดข้อผิดพลาดในการลบเอกสาร`,
+        type: "error",
+      });
+    } finally {
+      setIsDocDeleteModalOpen(false);
+      setDocToDelete(null);
     }
   };
 
@@ -322,10 +384,10 @@ export default function FinancialsPage() {
         } else {
           await deleteExpenseRecord(recordToDelete.id);
         }
-        alert(`ลบรายการ "${recordToDelete.name}" สำเร็จ`);
+        setNotification({ message: `ลบสำเร็จ`, type: "success" });
       } catch (error) {
         console.error("Error deleting record:", error);
-        alert("เกิดข้อผิดพลาดในการลบรายการ");
+        setNotification({ message: `การลบเกิดผิดพลาด`, type: "error" });
       } finally {
         setIsDeleteConfirmModalOpen(false);
         setRecordToDelete(null);
@@ -410,7 +472,7 @@ export default function FinancialsPage() {
             <Edit className="h-4 w-4" />
           </button>
           <button
-            onClick={() => openFileModal(record)}
+            onClick={() => openFileModal(record, "income")}   // ✅ ส่ง "income"
             className="text-green-400 hover:text-green-300"
             title="แนบไฟล์"
           >
@@ -425,6 +487,7 @@ export default function FinancialsPage() {
           >
             <X className="h-4 w-4" />
           </button>
+
         </div>
       ),
     },
@@ -484,12 +547,13 @@ export default function FinancialsPage() {
             <Edit className="h-4 w-4" />
           </button>
           <button
-            onClick={() => openFileModal(record)}
+            onClick={() => openFileModal(record, "expense")}  // ✅ ส่ง "expense"
             className="text-green-400 hover:text-green-300"
             title="แนบไฟล์"
           >
             <FileText className="h-4 w-4" />
           </button>
+
           <button
             onClick={() =>
               handleDeleteConfirm(record.id, "expense", record.type)
@@ -518,6 +582,15 @@ export default function FinancialsPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        {/* Notification */}
+        {notification && (
+          <Notification
+            message={notification.message}
+            type={notification.type}
+            onClose={() => setNotification(null)}
+          />
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -683,9 +756,14 @@ export default function FinancialsPage() {
               <select
                 required
                 value={formData.condo_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, condo_id: e.target.value })
-                }
+                onChange={(e) => {
+                  const nextCondoId = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    condo_id: nextCondoId,
+                    tenant_id: pickTenantIdForCondo(nextCondoId), // ✅ auto fill ผู้เช่า
+                  }));
+                }}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="">เลือกคอนโด</option>
@@ -695,6 +773,7 @@ export default function FinancialsPage() {
                   </option>
                 ))}
               </select>
+
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -829,10 +908,7 @@ export default function FinancialsPage() {
         >
           <div className="space-y-4">
             <p className="text-sm text-gray-400">
-              **หมายเหตุ:** เนื่องจากโครงสร้างฐานข้อมูลปัจจุบัน
-              เอกสารจะถูกแนบกับคอนโดที่เกี่ยวข้องกับรายการนี้
-              หากต้องการแนบเอกสารโดยตรงกับรายการรายรับ/รายจ่าย
-              จะต้องมีการปรับปรุงโครงสร้างตาราง `documents`
+              เอกสารจะถูกผูกกับ{recordType === "income" ? "รายการรายรับ" : "รายการรายจ่าย"}นี้
             </p>
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -886,7 +962,7 @@ export default function FinancialsPage() {
             {uploadedFiles.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-gray-300 mb-2">
-                  ไฟล์ที่เลือก ({uploadedFiles.length} ไฟล์):
+                  เอกสารของ{recordType === "income" ? "รายการรายรับ" : "รายการรายจ่าย"}นี้ ({documents.length} ไฟล์
                 </h4>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {uploadedFiles.map((file, index) => (
@@ -1006,6 +1082,21 @@ export default function FinancialsPage() {
             </div>
           </div>
         </Modal>
+        <ConfirmationModal
+          isOpen={isDocDeleteModalOpen}
+          onClose={() => {
+            setIsDocDeleteModalOpen(false);
+            setDocToDelete(null);
+          }}
+          onConfirm={confirmDocDelete}
+          title="ยืนยันการลบเอกสาร"
+          message={`คุณแน่ใจหรือไม่ว่าต้องการลบเอกสาร "${
+            docToDelete?.name || ""
+          }"? การดำเนินการนี้ไม่สามารถย้อนกลับได้`}
+          confirmText="ยืนยัน"
+          cancelText="ยกเลิก"
+          type="danger"
+        />
 
         {/* Delete Confirmation Modal */}
         <ConfirmationModal
@@ -1016,7 +1107,7 @@ export default function FinancialsPage() {
             recordToDelete?.type === "income" ? "รายรับ" : "รายจ่าย"
           }`}
           message={`คุณต้องการลบรายการ "${recordToDelete?.name}" นี้หรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้`}
-          confirmText="ลบ"
+          confirmText="ยืนยัน"
           cancelText="ยกเลิก"
           type="danger"
         />

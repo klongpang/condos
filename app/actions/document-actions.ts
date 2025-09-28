@@ -1,7 +1,6 @@
 "use server"
 
 import { supabaseServer } from "@/lib/supabase-server"
-import { documentService } from "@/lib/database"
 import { v4 as uuidv4 } from "uuid"
 
 interface UploadDocumentResult {
@@ -11,108 +10,129 @@ interface UploadDocumentResult {
   fileUrl?: string
 }
 
+const isUuid = (v: string | null) =>
+  !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
+
 export async function uploadDocument(formData: FormData): Promise<UploadDocumentResult> {
   const file = formData.get("file") as File | null
-  const condoId = formData.get("condoId") as string | null
-  const tenantId = formData.get("tenantId") as string | null // Optional for tenant documents
-  const documentType = formData.get("documentType") as string | null
-  const recordId = formData.get("recordId") as string | null // Optional for financial records
 
-  if (!file) {
-    return { success: false, message: "ไม่พบไฟล์" }
+  const paymentId = (formData.get("paymentId") as string | null) || null
+  let   incomeId  = (formData.get("incomeId")  as string | null) || null
+  let   expenseId = (formData.get("expenseId") as string | null) || null
+
+  const condoId   = (formData.get("condoId")   as string | null) || null
+  const tenantId  = (formData.get("tenantId")  as string | null) || null
+  const recordId  = (formData.get("recordId")  as string | null) || null
+  const documentType = (formData.get("documentType") as string | null) || null
+
+  if (!file) return { success: false, message: "ไม่พบไฟล์" }
+  if (!paymentId && !incomeId && !expenseId && !condoId && !tenantId && !recordId) {
+    return { success: false, message: "ต้องระบุ Income ID, Expense ID, Payment ID, Condo ID หรือ Tenant ID อย่างน้อย 1 อย่าง" }
   }
-  if (!condoId && !tenantId && !recordId) {
-    return { success: false, message: "ต้องระบุ Condo ID, Tenant ID หรือ Record ID" }
-  }
-  if (!documentType) {
-    return { success: false, message: "ต้องระบุประเภทเอกสาร" }
+  if (!documentType) return { success: false, message: "ต้องระบุประเภทเอกสาร (documentType)" }
+
+  // 1) ทำความสะอาดค่าให้เป็น null ถ้าไม่ใช่ UUID
+  if (!isUuid(incomeId))  incomeId  = null
+  if (!isUuid(expenseId)) expenseId = null
+
+  // 2) ไม่ให้มีทั้ง incomeId และ expenseId พร้อมกัน (เลือกอันเดียว)
+  if (incomeId && expenseId) {
+    // ให้ income มาก่อน
+    expenseId = null
   }
 
-  const fileExtension = file.name.split(".").pop()
-  const uniqueFileName = `${uuidv4()}.${fileExtension}` // Generate unique file name
-  const folderPath = condoId || tenantId || recordId // Use the relevant ID for folder structure
+  // 3) Preflight ตรวจ FK: ถ้ามี incomeId/expenseId ให้เช็คว่ามีจริง
+  if (incomeId) {
+    const { data, error } = await supabaseServer
+      .from("income_records")
+      .select("id")
+      .eq("id", incomeId)
+      .single()
+    if (error || !data) {
+      return { success: false, message: "income_id ไม่ถูกต้องหรือไม่มีอยู่จริง" }
+    }
+  }
+  if (expenseId) {
+    const { data, error } = await supabaseServer
+      .from("expense_records")
+      .select("id")
+      .eq("id", expenseId)
+      .single()
+    if (error || !data) {
+      return { success: false, message: "expense_id ไม่ถูกต้องหรือไม่มีอยู่จริง" }
+    }
+  }
+
+  const ext = file.name.includes(".") ? file.name.split(".").pop() : ""
+  const unique = ext ? `${uuidv4()}.${ext}` : uuidv4()
+
+  const scopeFolder =
+    incomeId  ? `incomes/${incomeId}` :
+    expenseId ? `expenses/${expenseId}` :
+    paymentId ? `payments/${paymentId}` :
+    condoId   ? `condos/${condoId}` :
+    tenantId  ? `tenants/${tenantId}` :
+                `records/${recordId}`
+
+  const objectPath = `${scopeFolder}/${documentType}/${unique}`
 
   try {
-    // Upload file to Supabase Storage
-    const { data, error: uploadError } = await supabaseServer.storage
+    // Upload to Storage
+    const { data: up, error: upErr } = await supabaseServer.storage
       .from("documents")
-      .upload(`${folderPath}/${uniqueFileName}`, file, {
-        cacheControl: "3600",
-        upsert: false,
-      })
+      .upload(objectPath, file, { cacheControl: "3600", upsert: false })
+    if (upErr) return { success: false, message: `อัปโหลดไฟล์ล้มเหลว: ${upErr.message}` }
 
-    if (uploadError) {
-      console.error("Supabase Storage Upload Error:", uploadError)
-      return { success: false, message: `เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ${uploadError.message}` }
-    }
-
-    // Get public URL
-    const { data: publicUrlData } = supabaseServer.storage.from("documents").getPublicUrl(data.path)
-
-    if (!publicUrlData || !publicUrlData.publicUrl) {
+    const { data: pub } = supabaseServer.storage.from("documents").getPublicUrl(up.path)
+    const fileUrl = pub?.publicUrl
+    if (!fileUrl) {
+      await supabaseServer.storage.from("documents").remove([up.path])
       return { success: false, message: "ไม่สามารถรับ URL สาธารณะของไฟล์ได้" }
     }
 
-    const fileUrl = publicUrlData.publicUrl
+    // Insert documents (ข้าม RLS ด้วย service role)
+    const { data: inserted, error: insertErr } = await supabaseServer
+      .from("documents")
+      .insert([{
+        name: file.name,
+        file_url: fileUrl,
+        file_type: file.type || "unknown",
+        document_type: documentType,
+        income_id:  incomeId  || null,
+        expense_id: expenseId || null,
+        payment_id: paymentId || null,
+        condo_id:   condoId   || null,
+        tenant_id:  tenantId  || null,
+      }])
+      .select("*")
+      .single()
 
-    // Save document metadata to database
-    const newDocument = await documentService.create({
-      condo_id: condoId || undefined,
-      tenant_id: tenantId || undefined,
-      // For financial records, you would need to add income_record_id or expense_record_id to the documents table schema
-      // For now, we link to condo_id if available, or leave null if only recordId is present and no condoId.
-      name: file.name, // Original file name
-      file_url: fileUrl,
-      file_type: file.type || "unknown",
-      document_type: documentType,
-    })
-
-    if (!newDocument) {
-      // If database save fails, consider deleting the uploaded file from storage
-      await supabaseServer.storage.from("documents").remove([data.path])
-      return { success: false, message: "เกิดข้อผิดพลาดในการบันทึกข้อมูลเอกสาร" }
+    if (insertErr || !inserted) {
+      await supabaseServer.storage.from("documents").remove([up.path])
+      return { success: false, message: insertErr?.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูลเอกสาร" }
     }
 
-    return {
-      success: true,
-      message: "อัปโหลดไฟล์และบันทึกข้อมูลสำเร็จ",
-      documentId: newDocument.id,
-      fileUrl: newDocument.file_url,
-    }
-  } catch (error: any) {
-    console.error("Server Action Error:", error)
-    return { success: false, message: `เกิดข้อผิดพลาดที่ไม่คาดคิด: ${error.message}` }
+    return { success: true, message: "อัปโหลดสำเร็จ", documentId: inserted.id, fileUrl: inserted.file_url }
+  } catch (e: any) {
+    return { success: false, message: `เกิดข้อผิดพลาดที่ไม่คาดคิด: ${e.message}` }
   }
 }
 
 export async function deleteDocumentAction(documentId: string, fileUrl: string): Promise<UploadDocumentResult> {
   try {
-    // Extract file path from URL for Supabase Storage deletion
-    // Assuming the URL format is like: https://[project_id].supabase.co/storage/v1/object/public/documents/[folder]/[filename]
-    const urlParts = fileUrl.split("/public/documents/")
-    if (urlParts.length < 2) {
-      return { success: false, message: "URL ไฟล์ไม่ถูกต้อง ไม่สามารถระบุตำแหน่งใน Storage ได้" }
-    }
-    const filePathInStorage = urlParts[1]
+    const marker = "/public/documents/"
+    const i = fileUrl.indexOf(marker)
+    if (i < 0) return { success: false, message: "URL ไฟล์ไม่ถูกต้อง" }
+    const storagePath = fileUrl.substring(i + marker.length)
 
-    // Delete from Supabase Storage
-    const { error: storageError } = await supabaseServer.storage.from("documents").remove([filePathInStorage])
+    const { error: delErr } = await supabaseServer.storage.from("documents").remove([storagePath])
+    if (delErr) return { success: false, message: `ลบไฟล์จาก Storage ล้มเหลว: ${delErr.message}` }
 
-    if (storageError) {
-      console.error("Supabase Storage Delete Error:", storageError)
-      return { success: false, message: `เกิดข้อผิดพลาดในการลบไฟล์จาก Storage: ${storageError.message}` }
-    }
-
-    // Delete from database
-    const success = await documentService.delete(documentId)
-
-    if (!success) {
-      return { success: false, message: "เกิดข้อผิดพลาดในการลบข้อมูลเอกสารจากฐานข้อมูล" }
-    }
+    const { error: dbErr } = await supabaseServer.from("documents").delete().eq("id", documentId)
+    if (dbErr) return { success: false, message: `ลบข้อมูลเอกสารในฐานข้อมูลล้มเหลว: ${dbErr.message}` }
 
     return { success: true, message: "ลบเอกสารสำเร็จ" }
-  } catch (error: any) {
-    console.error("Server Action Error (deleteDocumentAction):", error)
-    return { success: false, message: `เกิดข้อผิดพลาดที่ไม่คาดคิด: ${error.message}` }
+  } catch (e: any) {
+    return { success: false, message: `เกิดข้อผิดพลาดที่ไม่คาดคิด: ${e.message}` }
   }
 }

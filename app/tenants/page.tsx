@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
+import { ConfirmationModal } from "@/components/ui/confirmation-modal";
+import { Notification } from "@/components/ui/notification";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/lib/auth-context";
 import type { Tenant } from "@/lib/supabase";
@@ -50,6 +52,11 @@ export default function TenantsPage() {
   );
   const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>("");
 
+  const [notification, setNotification] = useState<{
+      message: string;
+      type: "success" | "error";
+    } | null>(null);
+
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
@@ -69,10 +76,22 @@ export default function TenantsPage() {
   const [selectedTenantForFile, setSelectedTenantForFile] =
     useState<Tenant | null>(null); // New state for selected tenant for file upload
   const {
-    documents: tenantDocuments, // Rename to avoid conflict
+    documents: tenantDocuments,
     loading: tenantDocumentsLoading,
     refetch: refetchTenantDocuments,
-  } = useDocumentsDB(undefined, selectedTenantForFile?.id); // Pass tenantId here
+  } = useDocumentsDB({
+    tenantId: selectedTenantForFile?.id,
+    scope: "tenant",
+  });
+
+
+  const [isTenantDocDeleteModalOpen, setIsTenantDocDeleteModalOpen] = useState(false);
+  const [tenantDocToDelete, setTenantDocToDelete] = useState<{
+    id: string;
+    fileUrl: string;  // บังคับเป็น string เสมอ (เหมือนของเก่า)
+    name: string;
+  } | null>(null);
+
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [documentType, setDocumentType] = useState<string>("");
@@ -112,15 +131,27 @@ export default function TenantsPage() {
     try {
       if (editingTenant) {
         await updateTenant(editingTenant.id, tenantData);
+        setNotification({
+          message: `บันทึกสำเร็จ`,
+          type: "success",
+        });
       } else {
         await addTenant(tenantData);
+        setNotification({
+          message: `บันทึกสำเร็จ`,
+          type: "success",
+        });
       }
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving tenant:", error);
-      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+      setNotification({
+        message: `เกิดข้อผิดพลาดในการบันทึกข้อมูล`,
+        type: "error",
+      });
     }
   };
+
 
   const resetForm = () => {
     setFormData({
@@ -249,7 +280,7 @@ export default function TenantsPage() {
           throw new Error(result.message);
         }
       }
-      alert(`อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`);
+      setNotification({ message: `อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`, type: "success" });
       setUploadedFiles([]);
       setDocumentType("");
       setIsTenantFileModalOpen(false);
@@ -262,25 +293,37 @@ export default function TenantsPage() {
     }
   };
 
-  const handleTenantDocumentDelete = async (
+  const handleTenantDocumentDelete = (
     docId: string,
     fileUrl: string,
     docName: string
   ) => {
-    if (window.confirm(`คุณต้องการลบเอกสาร "${docName}" หรือไม่?`)) {
-      try {
-        const result = await deleteDocumentAction(docId, fileUrl);
-        if (!result.success) {
-          throw new Error(result.message);
-        }
-        alert(`เอกสาร "${docName}" ถูกลบแล้ว`);
-        refetchTenantDocuments(); // Refetch documents after successful deletion
-      } catch (error: any) {
-        console.error("Error deleting document:", error);
-        alert(`เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`);
+    setTenantDocToDelete({ id: docId, fileUrl, name: docName });
+    setIsTenantDocDeleteModalOpen(true);
+  };
+
+  const confirmTenantDocDelete = async () => {
+    if (!tenantDocToDelete) return;
+    try {
+      const result = await deleteDocumentAction(
+        tenantDocToDelete.id,
+        tenantDocToDelete.fileUrl || "" // ส่ง string เสมอ ตาม behavior เดิม
+      );
+      if (!result.success) {
+        throw new Error(result.message);
       }
+      setNotification({message: `ลบเอกสารสำเร็จ`, type: "success",});
+      refetchTenantDocuments();
+    } catch (error: any) {
+      console.error("Error deleting document:", error);
+      alert(`เกิดข้อผิดพลาดในการลบเอกสาร`);
+    } finally {
+      setIsTenantDocDeleteModalOpen(false);
+      setTenantDocToDelete(null);
     }
   };
+
+
 
   const tenantDocumentTypes = [
     { value: "id_card", label: "สำเนาบัตรประชาชน" },
@@ -403,6 +446,15 @@ export default function TenantsPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        {/* Notification */}
+        {notification && (
+          <Notification
+            message={notification.message}
+            type={notification.type}
+            onClose={() => setNotification(null)}
+          />
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -913,6 +965,23 @@ export default function TenantsPage() {
             </div>
           </div>
         </Modal>
+
+        <ConfirmationModal
+          isOpen={isTenantDocDeleteModalOpen}
+          onClose={() => {
+            setIsTenantDocDeleteModalOpen(false);
+            setTenantDocToDelete(null);
+          }}
+          onConfirm={confirmTenantDocDelete}
+          title="ยืนยันการลบเอกสาร"
+          message={`คุณแน่ใจหรือไม่ว่าต้องการลบเอกสาร "${
+            tenantDocToDelete?.name || ""
+          }"? การดำเนินการนี้ไม่สามารถย้อนกลับได้`}
+          confirmText="ยืนยัน"
+          cancelText="ยกเลิก"
+          type="danger"
+        />
+
       </div>
     </MainLayout>
   );

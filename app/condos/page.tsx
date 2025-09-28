@@ -24,16 +24,29 @@ export default function CondosPage() {
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
+
+  // ปิดใช้งานคอนโด
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedCondo, setSelectedCondo] = useState<Condo | null>(null);
+
+  // ลบเอกสารด้วย ConfirmationModal
+  const [isDocDeleteModalOpen, setIsDocDeleteModalOpen] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<{
+    id: string;
+    fileUrl: string | null;
+    name: string;
+  } | null>(null);
+
   const [editingCondo, setEditingCondo] = useState<Condo | null>(null);
 
-  // Document states
   const {
-    documents,
-    loading: documentsLoading,
+    documents: condoDocuments,
+    loading: condoDocumentsLoading,
     refetch: refetchDocuments,
-  } = useDocumentsDB(selectedCondo?.id); // Use refetch
+  } = useDocumentsDB({
+    condoId: selectedCondo?.id,
+    scope: "condo",
+  });
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [documentType, setDocumentType] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
@@ -205,10 +218,7 @@ export default function CondosPage() {
           throw new Error(result.message);
         }
       }
-      setNotification({
-        message: `อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`,
-        type: "success",
-      });
+      setNotification({ message: `บันทึกสำเร็จ`, type: "success" });
       setUploadedFiles([]);
       setDocumentType("");
       setIsFileModalOpen(false);
@@ -224,31 +234,33 @@ export default function CondosPage() {
     }
   };
 
-  const handleDocumentDelete = async (
-    docId: string,
-    fileUrl: string,
-    docName: string
-  ) => {
-    if (window.confirm(`คุณต้องการลบเอกสาร "${docName}" หรือไม่?`)) {
-      try {
-        const result = await deleteDocumentAction(docId, fileUrl);
-        if (!result.success) {
-          throw new Error(result.message);
-        }
-        setNotification({
-          message: `เอกสาร "${docName}" ถูกลบแล้ว`,
-          type: "success",
-        });
-        refetchDocuments(); // Refetch documents after successful deletion
-      } catch (error: any) {
-        console.error("Error deleting document:", error);
-        setNotification({
-          message: `เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`,
-          type: "error",
-        });
-      }
+  // --- แก้ให้ใช้ ConfirmationModal สำหรับลบเอกสาร ---
+  const handleDocumentDelete = (docId: string, fileUrl: string, docName: string) => {
+    setDocToDelete({ id: docId, fileUrl, name: docName });
+    setIsDocDeleteModalOpen(true);
+  };
+
+
+  const confirmDocDelete = async () => {
+    if (!docToDelete) return;
+    try {
+      const result = await deleteDocumentAction(
+        docToDelete.id,
+        docToDelete.fileUrl || ""   // <-- บังคับส่งเสมอ (เหมือนของเก่า)
+      );
+      if (!result.success) throw new Error(result.message);
+      setNotification({ message: `เอกสาร "${docToDelete.name}" ถูกลบแล้ว`, type: "success" });
+      refetchDocuments();
+    } catch (error: any) {
+      console.error("Error deleting document:", error);
+      setNotification({ message: `เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`, type: "error" });
+    } finally {
+      setIsDocDeleteModalOpen(false);
+      setDocToDelete(null);
     }
   };
+
+  // --- จบส่วนแก้ไข ---
 
   const columns = [
     {
@@ -673,13 +685,13 @@ export default function CondosPage() {
               </div>
             )}
 
-            {documents.length > 0 && (
+            {condoDocuments.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-gray-300 mb-2">
-                  เอกสารที่มีอยู่ ({documents.length} ไฟล์):
+                  เอกสารที่มีอยู่ ({condoDocuments.length} ไฟล์):
                 </h4>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {documents.map((doc) => (
+                  {condoDocuments.map((doc) => (
                     <div
                       key={doc.id}
                       className="flex items-center justify-between bg-gray-700 p-3 rounded-lg"
@@ -760,8 +772,26 @@ export default function CondosPage() {
           </div>
         </Modal>
 
-        {/* Delete Confirmation Modal */}
-        {/* <ConfirmationModal
+        {/* Delete Document Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={isDocDeleteModalOpen}
+          onClose={() => {
+            setIsDocDeleteModalOpen(false);
+            setDocToDelete(null);
+          }}
+          onConfirm={confirmDocDelete}
+          title="ยืนยันการลบเอกสาร"
+          message={`คุณแน่ใจหรือไม่ว่าต้องการลบเอกสาร "${
+            docToDelete?.name || ""
+          }"? การดำเนินการนี้ไม่สามารถย้อนกลับได้`}
+          confirmText="ยืนยัน"
+          cancelText="ยกเลิก"
+          type="danger"
+        />
+
+        {/* Delete Condo Confirmation Modal (ถ้าจะใช้ ให้เอาคอมเมนต์ออก) */}
+        {/*
+        <ConfirmationModal
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}
           onConfirm={confirmDelete}
@@ -770,7 +800,8 @@ export default function CondosPage() {
           confirmText="ปิดใช้งาน"
           cancelText="ยกเลิก"
           type="warning"
-        /> */}
+        />
+        */}
       </div>
     </MainLayout>
   );

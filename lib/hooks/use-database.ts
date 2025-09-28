@@ -11,7 +11,16 @@ import {
   documentService, // Import documentService
 } from "../database"
 import { supabase } from "@/lib/supabase"
-import type { Condo, Tenant, RentPayment, IncomeRecord, ExpenseRecord, TenantHistory, Document, Notification } from "../supabase"
+import type {
+  Condo,
+  Tenant,
+  RentPayment,
+  IncomeRecord,
+  ExpenseRecord,
+  TenantHistory,
+  Document,
+  Notification,
+} from "../supabase"
 
 // Custom hook for condos with real database
 export function useCondosDB(userId?: string) {
@@ -34,12 +43,14 @@ export function useCondosDB(userId?: string) {
     }
   }
 
-  useEffect(() => { fetchCondos() }, [userId])
+  useEffect(() => {
+    fetchCondos()
+  }, [userId])
 
   const addCondo = async (condoData: Omit<Condo, "id" | "created_at">) => {
     try {
       const newCondo = await condoService.create(condoData)
-      if (newCondo) setCondos(prev => [newCondo, ...prev])
+      if (newCondo) setCondos((prev) => [newCondo, ...prev])
       return newCondo
     } catch (err) {
       console.error("Add condo error:", err)
@@ -52,7 +63,7 @@ export function useCondosDB(userId?: string) {
     try {
       const updated = await condoService.update(id, updates)
       if (updated) {
-        setCondos(prev => prev.map(c => (c.id === id ? updated : c)))
+        setCondos((prev) => prev.map((c) => (c.id === id ? updated : c)))
         return updated
       }
     } catch (err) {
@@ -66,7 +77,7 @@ export function useCondosDB(userId?: string) {
     try {
       const ok = await condoService.delete(id)
       if (ok) {
-        setCondos(prev => prev.filter(c => c.id !== id))
+        setCondos((prev) => prev.filter((c) => c.id !== id))
         return true
       }
     } catch (err) {
@@ -78,7 +89,6 @@ export function useCondosDB(userId?: string) {
 
   return { condos, loading, error, addCondo, updateCondo, deleteCondo, refetch: fetchCondos }
 }
-
 
 // Custom hook for tenants with real database
 export function useTenantsDB(userId?: string) {
@@ -184,92 +194,92 @@ export function useTenantsDB(userId?: string) {
 }
 
 // Custom hook for rent payments with real database
-  export function useRentPaymentsDB(userId?: string) {
-    const [payments, setPayments] = useState<RentPayment[]>([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
+export function useRentPaymentsDB(userId?: string) {
+  const [payments, setPayments] = useState<RentPayment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-    const fetchPayments = async () => {
-      try {
-        setLoading(true)
-        const allPayments = await rentPaymentService.getAll()
-        let filteredData = allPayments
+  const fetchPayments = async () => {
+    try {
+      setLoading(true)
+      const allPayments = await rentPaymentService.getAll()
+      let filteredData = allPayments
 
-        if (userId) {
-          const userCondos = await condoService.getByUserId(userId)
-          const userCondoIds = userCondos.map((c) => c.id)
-          filteredData = allPayments.filter((p) => p.tenant?.condo_id && userCondoIds.includes(p.tenant.condo_id))
-        }
-
-        setPayments(filteredData)
-        setError(null)
-      } catch (err) {
-        setError("Failed to fetch payments")
-        console.error("Error fetching payments:", err)
-      } finally {
-        setLoading(false)
+      if (userId) {
+        const userCondos = await condoService.getByUserId(userId)
+        const userCondoIds = userCondos.map((c) => c.id)
+        filteredData = allPayments.filter((p) => p.tenant?.condo_id && userCondoIds.includes(p.tenant.condo_id))
       }
-    }
 
-    useEffect(() => {
-      fetchPayments()
-      // Update overdue payments on load
-      rentPaymentService.updateOverduePayments()
-    }, [userId])
-
-    const addPayment = async (paymentData: Omit<RentPayment, "id" | "created_at">) => {
-      try {
-        const newPayment = await rentPaymentService.create(paymentData)
-        if (newPayment) {
-          setPayments((prev) => [newPayment, ...prev])
-          return newPayment
-        }
-      } catch (err) {
-        setError("Failed to add payment")
-        console.error("Error adding payment:", err)
-      }
-      return null
-    }
-
-    const updatePayment = async (id: string, updates: Partial<RentPayment>) => {
-      try {
-        const updatedPayment = await rentPaymentService.update(id, updates)
-        if (updatedPayment) {
-          setPayments((prev) => prev.map((p) => (p.id === id ? updatedPayment : p)))
-          return updatedPayment
-        }
-      } catch (err) {
-        setError("Failed to update payment")
-        console.error("Error updating payment:", err)
-      }
-      return null
-    }
-
-    const deletePayment = async (id: string) => {
-      try {
-        const success = await rentPaymentService.delete(id)
-        if (success) {
-          setPayments((prev) => prev.filter((p) => p.id !== id))
-          return true
-        }
-        return false
-      } catch (err) {
-        setError("Failed to delete payment")
-        console.error("Error deleting payment:", err)
-        return false
-      }
-    }
-
-    return { 
-      payments, 
-      loading, 
-      error, 
-      addPayment, 
-      updatePayment, 
-      deletePayment, 
-      refetch: fetchPayments 
+      setPayments(filteredData)
+      setError(null)
+    } catch (err) {
+      setError("Failed to fetch payments")
+      console.error("Error fetching payments:", err)
+    } finally {
+      setLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchPayments()
+    // Update overdue payments on load
+    rentPaymentService.updateOverduePayments()
+  }, [userId])
+
+  const addPayment = async (paymentData: Omit<RentPayment, "id" | "created_at">) => {
+    try {
+      const newPayment = await rentPaymentService.create(paymentData)
+      if (newPayment) {
+        setPayments((prev) => [newPayment, ...prev])
+        return newPayment
+      }
+    } catch (err) {
+      setError("Failed to add payment")
+      console.error("Error adding payment:", err)
+    }
+    return null
+  }
+
+  const updatePayment = async (id: string, updates: Partial<RentPayment>) => {
+    try {
+      const updatedPayment = await rentPaymentService.update(id, updates)
+      if (updatedPayment) {
+        setPayments((prev) => prev.map((p) => (p.id === id ? updatedPayment : p)))
+        return updatedPayment
+      }
+    } catch (err) {
+      setError("Failed to update payment")
+      console.error("Error updating payment:", err)
+    }
+    return null
+  }
+
+  const deletePayment = async (id: string) => {
+    try {
+      const success = await rentPaymentService.delete(id)
+      if (success) {
+        setPayments((prev) => prev.filter((p) => p.id !== id))
+        return true
+      }
+      return false
+    } catch (err) {
+      setError("Failed to delete payment")
+      console.error("Error deleting payment:", err)
+      return false
+    }
+  }
+
+  return {
+    payments,
+    loading,
+    error,
+    addPayment,
+    updatePayment,
+    deletePayment,
+    refetch: fetchPayments,
+  }
+}
 
 // Custom hook for financial records with real database
 export function useFinancialRecordsDB(userId?: string) {
@@ -436,15 +446,17 @@ export function useTenantHistoryDB(userId?: string) {
         return
       }
 
-      const condoIds = condos.map(c => c.id)
+      const condoIds = condos.map((c) => c.id)
 
       // 2. ดึง tenant_history ที่มี condo_id ตรงกับ condo ของ user
       const { data, error: historyError } = await supabase
         .from("tenant_history")
-        .select(`
+        .select(
+          `
           *,
           condo:condos(*)
-        `)
+        `,
+        )
         .in("condo_id", condoIds)
         .order("moved_out_at", { ascending: false })
 
@@ -471,17 +483,75 @@ export function useTenantHistoryDB(userId?: string) {
     tenantHistory,
     loading,
     error,
-    refresh
+    refresh,
   }
 }
-// Custom hook for documents with real database
-export function useDocumentsDB(condoId?: string, tenantId?: string) {
+
+// -------------------- Custom hook for documents with real database --------------------
+// Backward-compatible + scope filtering
+type DocumentFilters = {
+  condoId?: string
+  tenantId?: string
+  paymentId?: string
+  incomeId?: string
+  expenseId?: string
+  documentType?: string
+  scope?: "tenant" | "payment" | "income" | "expense" | "condo" | "any"
+}
+
+type UseDocumentsDBReturn = {
+  documents: Document[]
+  loading: boolean
+  error: string | null
+  addDocument: (d: Omit<Document, "id" | "created_at">) => Promise<Document | null>
+  deleteDocument: (id: string) => Promise<boolean>
+  refetch: () => Promise<void>
+}
+
+// Overloads (รองรับสไตล์เก่า)
+export function useDocumentsDB(condoId?: string, tenantId?: string): UseDocumentsDBReturn
+export function useDocumentsDB(
+  condoId?: string,
+  tenantId?: string,
+  paymentId?: string,
+  documentType?: string,
+): UseDocumentsDBReturn
+export function useDocumentsDB(filters?: DocumentFilters): UseDocumentsDBReturn
+
+export function useDocumentsDB(a?: DocumentFilters | string, b?: string, c?: string, d?: string): UseDocumentsDBReturn {
+  let filters: DocumentFilters = {}
+
+  if (typeof a === "object" || a === undefined) {
+    filters = (a as DocumentFilters) ?? {}
+  } else {
+    // legacy positional
+    filters = {
+      condoId: a || undefined,
+      tenantId: b || undefined,
+      paymentId: c || undefined,
+      documentType: d || undefined,
+      // scope ไม่รองรับใน legacy → ปล่อยว่าง
+    }
+  }
+
+  return _useDocumentsDBImpl(filters)
+}
+
+function _useDocumentsDBImpl({
+  condoId,
+  tenantId,
+  paymentId,
+  incomeId,
+  expenseId,
+  documentType,
+  scope,
+}: DocumentFilters): UseDocumentsDBReturn {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetchDocuments = async () => {
-    if (!condoId && !tenantId) {
+    if (!incomeId && !expenseId && !paymentId && !condoId && !tenantId) {
       setDocuments([])
       setLoading(false)
       return
@@ -489,11 +559,20 @@ export function useDocumentsDB(condoId?: string, tenantId?: string) {
     try {
       setLoading(true)
       let data: Document[] = []
-      if (condoId) {
-        data = await documentService.getByCondoId(condoId)
+
+      // Priority: income > expense > payment > condo > tenant
+      if (incomeId) {
+        data = await documentService.getByIncomeId(incomeId, { documentType, scope })
+      } else if (expenseId) {
+        data = await documentService.getByExpenseId(expenseId, { documentType, scope })
+      } else if (paymentId) {
+        data = await documentService.getByPaymentId(paymentId, { documentType, scope })
+      } else if (condoId) {
+        data = await documentService.getByCondoId(condoId, { documentType, scope })
       } else if (tenantId) {
-        data = await documentService.getByTenantId(tenantId)
+        data = await documentService.getByTenantId(tenantId, { documentType, scope })
       }
+
       setDocuments(data)
       setError(null)
     } catch (err) {
@@ -506,13 +585,13 @@ export function useDocumentsDB(condoId?: string, tenantId?: string) {
 
   useEffect(() => {
     fetchDocuments()
-  }, [condoId, tenantId])
+  }, [incomeId, expenseId, paymentId, condoId, tenantId, documentType, scope])
 
   const addDocument = async (documentData: Omit<Document, "id" | "created_at">) => {
     try {
       const newDocument = await documentService.create(documentData)
       if (newDocument) {
-        setDocuments((prev) => [newDocument, ...prev])
+        setDocuments(prev => [newDocument, ...prev])
         return newDocument
       }
     } catch (err) {
@@ -526,7 +605,7 @@ export function useDocumentsDB(condoId?: string, tenantId?: string) {
     try {
       const success = await documentService.delete(id)
       if (success) {
-        setDocuments((prev) => prev.filter((d) => d.id !== id))
+        setDocuments(prev => prev.filter(d => d.id !== id))
         return true
       }
     } catch (err) {
@@ -539,6 +618,7 @@ export function useDocumentsDB(condoId?: string, tenantId?: string) {
   return { documents, loading, error, addDocument, deleteDocument, refetch: fetchDocuments }
 }
 
+// -------------------- Notifications --------------------
 export const useNotificationsDB = (userId?: string) => {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)

@@ -264,50 +264,64 @@ export const rentPaymentService = {
   }
 }
 
-// Income Record functions
 export const incomeService = {
   async getAll(): Promise<IncomeRecord[]> {
     const { data, error } = await supabase
       .from("income_records")
       .select(`
         *,
-        condo:condos(*)
+        condo:condos(*),
+        tenant:tenants(*)
       `)
       .order("date", { ascending: false })
 
-    return error ? [] : data
+    return error ? [] : (data as IncomeRecord[])
   },
 
   async create(incomeData: Omit<IncomeRecord, "id" | "created_at">): Promise<IncomeRecord | null> {
+    // กันเคส UI ส่ง "" → ให้เป็น null
+    const payload = {
+      ...incomeData,
+      tenant_id: incomeData.tenant_id || null,
+    }
+
     const { data, error } = await supabase
       .from("income_records")
-      .insert([incomeData])
+      .insert([payload])
       .select(`
         *,
-        condo:condos(*)
+        condo:condos(*),
+        tenant:tenants(*)
       `)
       .single()
 
-    return error ? null : data
+    return error ? null : (data as IncomeRecord)
   },
 
   async update(id: string, updates: Partial<IncomeRecord>): Promise<IncomeRecord | null> {
+    const payload = {
+      ...updates,
+      tenant_id:
+        updates.tenant_id === "" ? null : updates.tenant_id ?? undefined, // คงค่าเดิมถ้าไม่ส่งมา
+      updated_at: new Date().toISOString(),
+    }
+
     const { data, error } = await supabase
       .from("income_records")
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(payload)
       .eq("id", id)
       .select(`
         *,
-        condo:condos(*)
+        condo:condos(*),
+        tenant:tenants(*)
       `)
       .single()
 
-    return error ? null : data
+    return error ? null : (data as IncomeRecord)
   },
 
   async delete(id: string): Promise<boolean> {
     const { error } = await supabase.from("income_records").delete().eq("id", id)
-
     return !error
   },
 }
@@ -319,46 +333,61 @@ export const expenseService = {
       .from("expense_records")
       .select(`
         *,
-        condo:condos(*)
+        condo:condos(*),
+        tenant:tenants(*)
       `)
       .order("date", { ascending: false })
 
-    return error ? [] : data
+    return error ? [] : (data as ExpenseRecord[])
   },
 
   async create(expenseData: Omit<ExpenseRecord, "id" | "created_at">): Promise<ExpenseRecord | null> {
+    const payload = {
+      ...expenseData,
+      tenant_id: expenseData.tenant_id || null,
+    }
+
     const { data, error } = await supabase
       .from("expense_records")
-      .insert([expenseData])
+      .insert([payload])
       .select(`
         *,
-        condo:condos(*)
+        condo:condos(*),
+        tenant:tenants(*)
       `)
       .single()
 
-    return error ? null : data
+    return error ? null : (data as ExpenseRecord)
   },
 
   async update(id: string, updates: Partial<ExpenseRecord>): Promise<ExpenseRecord | null> {
+    const payload = {
+      ...updates,
+      tenant_id:
+        updates.tenant_id === "" ? null : updates.tenant_id ?? undefined,
+      updated_at: new Date().toISOString(),
+    }
+
     const { data, error } = await supabase
       .from("expense_records")
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(payload)
       .eq("id", id)
       .select(`
         *,
-        condo:condos(*)
+        condo:condos(*),
+        tenant:tenants(*)
       `)
       .single()
 
-    return error ? null : data
+    return error ? null : (data as ExpenseRecord)
   },
 
   async delete(id: string): Promise<boolean> {
     const { error } = await supabase.from("expense_records").delete().eq("id", id)
-
     return !error
   },
 }
+
 
 // Tenant History functions
 export const tenantHistoryService = {
@@ -414,37 +443,70 @@ export const tenantHistoryService = {
   }
 }
 
-export const documentService = {
-  async getByCondoId(condoId: string): Promise<Document[]> {
-    const { data, error } = await supabase
-      .from("documents")
-      .select("*")
-      .eq("condo_id", condoId)
-      .order("created_at", { ascending: false })
+export type GetOptions = {
+  documentType?: string
+  scope?: "tenant" | "payment" | "income" | "expense" | "condo" | "any"
+}
 
-    return error ? [] : data
+export const documentService = {
+  async getByCondoId(condoId: string, opts?: GetOptions): Promise<Document[]> {
+    let q = supabase.from("documents").select("*").eq("condo_id", condoId)
+
+    // เอาเฉพาะเอกสาร “ของคอนโดโดยตรง”
+    if (opts?.scope === "condo") {
+      q = q
+        .is("tenant_id", null)
+        .is("payment_id", null)
+        .is("income_id", null)
+        .is("expense_id", null)
+    }
+
+    if (opts?.documentType) q = q.eq("document_type", opts.documentType)
+    const { data, error } = await q.order("created_at", { ascending: false })
+    return error ? [] : (data as Document[])
   },
 
-   async getByTenantId(tenantId: string): Promise<Document[]> {
-    // New method
-    const { data, error } = await supabase
-      .from("documents")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .order("created_at", { ascending: false })
+  async getByTenantId(tenantId: string, opts?: GetOptions): Promise<Document[]> {
+    let q = supabase.from("documents").select("*").eq("tenant_id", tenantId)
 
-    return error ? [] : data
+    // เอาเฉพาะเอกสาร “ของผู้เช่าโดยตรง”
+    if (opts?.scope === "tenant") {
+      q = q.is("payment_id", null).is("income_id", null).is("expense_id", null)
+    }
+
+    if (opts?.documentType) q = q.eq("document_type", opts.documentType)
+    const { data, error } = await q.order("created_at", { ascending: false })
+    return error ? [] : (data as Document[])
+  },
+
+  async getByPaymentId(paymentId: string, opts?: GetOptions): Promise<Document[]> {
+    let q = supabase.from("documents").select("*").eq("payment_id", paymentId)
+    if (opts?.documentType) q = q.eq("document_type", opts.documentType)
+    const { data, error } = await q.order("created_at", { ascending: false })
+    return error ? [] : (data as Document[])
+  },
+
+  async getByIncomeId(incomeId: string, opts?: GetOptions): Promise<Document[]> {
+    let q = supabase.from("documents").select("*").eq("income_id", incomeId)
+    if (opts?.documentType) q = q.eq("document_type", opts.documentType)
+    const { data, error } = await q.order("created_at", { ascending: false })
+    return error ? [] : (data as Document[])
+  },
+
+  async getByExpenseId(expenseId: string, opts?: GetOptions): Promise<Document[]> {
+    let q = supabase.from("documents").select("*").eq("expense_id", expenseId)
+    if (opts?.documentType) q = q.eq("document_type", opts.documentType)
+    const { data, error } = await q.order("created_at", { ascending: false })
+    return error ? [] : (data as Document[])
   },
 
   async create(documentData: Omit<Document, "id" | "created_at">): Promise<Document | null> {
     const { data, error } = await supabase.from("documents").insert([documentData]).select().single()
-
-    return error ? null : data
+    return error ? null : (data as Document)
   },
 
   async delete(id: string): Promise<boolean> {
     const { error } = await supabase.from("documents").delete().eq("id", id)
-
     return !error
   },
 }

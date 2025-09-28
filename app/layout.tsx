@@ -7,9 +7,12 @@ import { AuthProvider } from "@/lib/auth-context"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "CondoManager - Property Management System",
-  description: "Comprehensive condo management application for property owners",
-    generator: 'v0.dev'
+  title: "ระบบจัดการคอนโด by 3CAT",
+  description: "ระบบจัดการคอนโด",
+    generator: '3CAT',
+  icons: {
+    icon: "/favicon.ico",
+  },  
 }
 
 export default function RootLayout({

@@ -59,10 +59,23 @@ export default function RentPage() {
 
   // Document states for payment receipts
   const {
-    documents: paymentDocuments, // Rename to avoid conflict
+    documents: paymentDocuments,
     loading: paymentDocumentsLoading,
     refetch: refetchPaymentDocuments,
-  } = useDocumentsDB(selectedPayment?.tenant?.condo_id); // Fetch documents related to the condo of the selected payment's tenant
+  } = useDocumentsDB({
+    paymentId: selectedPayment?.id,
+    documentType: "payment_receipt",
+  });
+
+
+
+  const [isRentDocDeleteModalOpen, setIsRentDocDeleteModalOpen] =
+    useState(false);
+  const [rentDocToDelete, setRentDocToDelete] = useState<{
+    id: string;
+    fileUrl: string; // ส่งเป็น string เสมอ ตามพฤติกรรมเดิม
+    name: string;
+  } | null>(null);
 
   // Filter states
   const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>("");
@@ -299,7 +312,8 @@ export default function RentPage() {
               savedPayment.tenant?.condo_id || ""
             );
             uploadFormData.append("documentType", "payment_receipt"); // Specific document type for payment receipts
-
+            uploadFormData.append("paymentId", savedPayment.id);
+            uploadFormData.append("tenantId", savedPayment.tenant_id || "")
             const result = await uploadDocument(uploadFormData);
             if (!result.success) {
               throw new Error(result.message);
@@ -333,29 +347,39 @@ export default function RentPage() {
     }
   };
 
-  const handleDocumentDelete = async (
+  const handleDocumentDelete = (
     docId: string,
     fileUrl: string,
     docName: string
   ) => {
-    if (window.confirm(`คุณต้องการลบเอกสาร "${docName}" หรือไม่?`)) {
-      try {
-        const result = await deleteDocumentAction(docId, fileUrl);
-        if (!result.success) {
-          throw new Error(result.message);
-        }
-        setNotification({
-          message: `เอกสาร "${docName}" ถูกลบแล้ว`,
-          type: "success",
-        });
-        refetchPaymentDocuments(); // Refetch documents after successful deletion
-      } catch (error: any) {
-        console.error("Error deleting document:", error);
-        setNotification({
-          message: `เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`,
-          type: "error",
-        });
+    setRentDocToDelete({ id: docId, fileUrl, name: docName });
+    setIsRentDocDeleteModalOpen(true);
+  };
+
+  const confirmRentDocDelete = async () => {
+    if (!rentDocToDelete) return;
+    try {
+      const result = await deleteDocumentAction(
+        rentDocToDelete.id,
+        rentDocToDelete.fileUrl || "" // บังคับส่ง string เสมอ
+      );
+      if (!result.success) {
+        throw new Error(result.message);
       }
+      setNotification({
+        message: `เอกสาร "${rentDocToDelete.name}" ถูกลบแล้ว`,
+        type: "success",
+      });
+      refetchPaymentDocuments(); // รีเฟรชรายการเอกสารของ rent
+    } catch (error: any) {
+      console.error("Error deleting document:", error);
+      setNotification({
+        message: `เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`,
+        type: "error",
+      });
+    } finally {
+      setIsRentDocDeleteModalOpen(false);
+      setRentDocToDelete(null);
     }
   };
 
@@ -870,11 +894,10 @@ export default function RentPage() {
             {selectedPayment && paymentDocuments.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-gray-300 mb-2">
-                  เอกสารที่แนบสำหรับคอนโดนี้ ({paymentDocuments.length} ไฟล์):
+                  เอกสารที่แนบสำหรับรายการนี้ ({paymentDocuments.length} ไฟล์):
                 </h4>
                 <p className="text-xs text-gray-400 mb-2">
-                  **หมายเหตุ:** เอกสารเหล่านี้เชื่อมโยงกับคอนโดของผู้เช่า
-                  และถูกกรองให้แสดงเฉพาะประเภท 'payment_receipt'
+                  **หมายเหตุ:** เอกสารถูกกรองด้วยประเภท 'payment_receipt' และรายการชำระนี้
                 </p>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {paymentDocuments.map((doc) => (
@@ -968,6 +991,22 @@ export default function RentPage() {
             </div>
           </form>
         </Modal>
+        <ConfirmationModal
+          isOpen={isRentDocDeleteModalOpen}
+          onClose={() => {
+            setIsRentDocDeleteModalOpen(false);
+            setRentDocToDelete(null);
+          }}
+          onConfirm={confirmRentDocDelete}
+          title="ยืนยันการลบเอกสาร"
+          message={`คุณแน่ใจหรือไม่ว่าต้องการลบเอกสาร "${
+            rentDocToDelete?.name || ""
+          }"? การดำเนินการนี้ไม่สามารถย้อนกลับได้`}
+          confirmText="ยืนยัน"
+          cancelText="ยกเลิก"
+          type="danger"
+        />
+
         {/* Delete Confirmation Modal */}
         <ConfirmationModal
           isOpen={isDeleteModalOpen}
@@ -979,7 +1018,7 @@ export default function RentPage() {
           } จำนวน ฿${
             paymentToDelete?.amount.toLocaleString() || "N/A"
           }? การดำเนินการนี้ไม่สามารถย้อนกลับได้`}
-          confirmText="ลบ"
+          confirmText="ยืนยัน"
           cancelText="ยกเลิก"
           type="danger"
         />

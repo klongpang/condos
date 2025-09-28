@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = 'https://qgudwwoddocjpmouwakj.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFndWR3d29kZG9janBtb3V3YWtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY3MTc1MzgsImV4cCI6MjA2MjI5MzUzOH0.fssmc1sXisCbaW_Wo3lwOKxsLjrhZ-h2oIrp2k13n_k'
-const serviceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFndWR3d29kZG9janBtb3V3YWtqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NjcxNzUzOCwiZXhwIjoyMDYyMjkzNTM4fQ.I-gRN0NjHSskP-wwKjQTrX35Yh2tvbzR6qsiHVVlBZY'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
@@ -113,6 +113,7 @@ export interface IncomeRecord {
   category?: string
   created_at: string
   condo?: Condo
+  tenant_id?: string
 }
 
 export interface ExpenseRecord {
@@ -125,12 +126,16 @@ export interface ExpenseRecord {
   category?: string
   created_at: string
   condo?: Condo
+  tenant_id?: string
 }
 
 export interface Document {
   id: string
   condo_id?: string
   tenant_id?: string
+  payment_id?: string | null
+  expense_id?: string | null
+  income_id?: string | null
   name: string
   file_url?: string
   file_type?: string
