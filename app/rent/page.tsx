@@ -709,7 +709,7 @@ export default function RentPage() {
           columns={columns}
           loading={loading}
           emptyMessage="ไม่พบรายการชำระค่าเช่า"
-          itemsPerPage={10}
+          itemsPerPage={12}
         />
 
         <Modal

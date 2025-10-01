@@ -371,44 +371,103 @@ export default function TenantsPage() {
       render: (tenant: Tenant) => `฿${tenant.monthly_rent.toLocaleString()}`,
     },
     {
-      key: "rental_period",
-      header: "ระยะเวลาเช่า",
-      render: (tenant: Tenant) => (
-        <div className="text-sm">
-          <div>{new Date(tenant.rental_start).toLocaleDateString("th-TH")}</div>
-          <div className="text-gray-400">
-            ถึง {new Date(tenant.rental_end).toLocaleDateString("th-TH")}
-          </div>
-        </div>
-      ),
+        key: "rental_period",
+        header: "ระยะเวลาเช่า",
+        render: (tenant: Tenant) => {
+            // ไม่ต้องใช้ฟังก์ชัน monthDiff อีกต่อไป
+
+            const today = new Date();
+            const rentalEnd = new Date(tenant.rental_end);
+            
+            // 1. คำนวณส่วนต่างของเวลาเป็นมิลลิวินาที (วันสิ้นสุด - วันนี้)
+            const timeDiff = rentalEnd.getTime() - today.getTime();
+            
+            // 2. แปลงส่วนต่างของเวลาเป็น 'จำนวนวัน' ที่เหลือ (ปัดขึ้น)
+            const MS_PER_DAY = 24 * 60 * 60 * 1000;
+            const daysRemaining = Math.ceil(timeDiff / MS_PER_DAY);
+
+            // 3. กำหนดเกณฑ์จำนวนวัน (4 เดือน ≈ 120 วัน, 2 เดือน ≈ 60 วัน)
+            const DAYS_RED_THRESHOLD = 60;   // 2 เดือน
+            const DAYS_YELLOW_THRESHOLD = 90; // 4 เดือน
+
+            // 4. กำหนด CSS Class ตามเงื่อนไข (ใช้ daysRemaining แทน monthsRemaining)
+            let endClass = "text-gray-400"; // สีเทา (ค่าเริ่มต้น)
+
+            if (daysRemaining <= DAYS_RED_THRESHOLD && daysRemaining > 0) {
+                // ใกล้ 2 เดือน (60 วัน) หรือน้อยกว่า: สีแดง (ต้องมากกว่า 0 เพื่อไม่ให้วันที่เลยกำหนดมีสีแดงนี้)
+                endClass = "text-red-500 font-bold";
+            } else if (daysRemaining <= DAYS_YELLOW_THRESHOLD && daysRemaining > 0) {
+                // ใกล้ 4 เดือน (120 วัน) หรือน้อยกว่า: สีเหลือง
+                endClass = "text-yellow-500";
+            } else if (daysRemaining <= 0) {
+                // วันที่เลยกำหนดไปแล้ว (daysRemaining เป็น 0 หรือติดลบ)
+                endClass = "text-red-700 font-bold italic"; // อาจใช้สีแดงเข้มเพื่อระบุว่าหมดอายุแล้ว
+            }
+            
+            // 5. แสดงผลลัพธ์
+            const rentalStartTH = new Date(tenant.rental_start).toLocaleDateString("th-TH");
+            const rentalEndTH = rentalEnd.toLocaleDateString("th-TH");
+
+            return (
+                <div className="text-sm">
+                    <div>{rentalStartTH}</div>
+                    <div className={endClass}>
+                        ถึง {rentalEndTH}
+                    </div>
+                    {/* <div className="text-xs text-blue-500">(เหลือ {daysRemaining} วัน)</div> */}
+                </div>
+            );
+        },
     },
     {
-      key: "status",
-      header: "สถานะ",
-      render: (tenant: Tenant) => {
-        const endDate = new Date(tenant.rental_end);
-        const today = new Date();
-        const isExpiring =
-          endDate <= new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+        key: "status",
+        header: "สถานะ",
+        render: (tenant: Tenant) => {
+            const endDate = new Date(tenant.rental_end);
+            const today = new Date();
 
-        return (
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${
-              tenant.is_active
-                ? isExpiring
-                  ? "bg-yellow-900 text-yellow-300"
-                  : "bg-green-900 text-green-300"
-                : "bg-red-900 text-red-300"
-            }`}
-          >
-            {tenant.is_active
-              ? isExpiring
-                ? "ใกล้หมดอายุ"
-                : "ใช้งาน"
-              : "ไม่ใช้งาน"}
-          </span>
-        );
-      },
+            // 1. กำหนดเกณฑ์วันที่ (เป็นมิลลิวินาที)
+            const MS_PER_DAY = 24 * 60 * 60 * 1000;
+            
+            // กำหนดเส้นตายสำหรับ 'วิกฤต' (2 เดือน ≈ 60 วัน)
+            const deadlineRed = new Date(today.getTime() + 60 * MS_PER_DAY);
+            
+            // กำหนดเส้นตายสำหรับ 'ใกล้หมดอายุ' (4 เดือน ≈ 120 วัน)
+            const deadlineYellow = new Date(today.getTime() + 90 * MS_PER_DAY);
+
+            // 2. ตรวจสอบเงื่อนไขตามลำดับ (วิกฤต/แดง, ใกล้หมดอายุ/เหลือง)
+            const isVeryNearExpiring = endDate <= deadlineRed;   // 2 เดือนหรือน้อยกว่า
+            const isExpiring = endDate <= deadlineYellow;       // 4 เดือนหรือน้อยกว่า
+
+            let statusText: string;
+            let classNames: string;
+
+            if (!tenant.is_active) {
+                // สถานะ 1: ไม่ใช้งาน (Inactive) - RED
+                statusText = "ไม่ใช้งาน";
+                classNames = "bg-red-900 text-red-300";
+            } else if (isVeryNearExpiring) {
+                // สถานะ 2: วิกฤต (<= 2 เดือน) - RED
+                statusText = "จะหมดสัญญา"; 
+                classNames = "bg-red-900 text-red-300"; 
+            } else if (isExpiring) {
+                // สถานะ 3: ใกล้หมดอายุ (<= 4 เดือน แต่ > 2 เดือน) - YELLOW
+                statusText = "ใกล้หมดสัญญา";
+                classNames = "bg-yellow-900 text-yellow-300";
+            } else {
+                // สถานะ 4: ใช้งาน (เหลือ > 4 เดือน) - GREEN
+                statusText = "ใช้งาน";
+                classNames = "bg-green-900 text-green-300";
+            }
+
+            return (
+                <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${classNames}`}
+                >
+                    {statusText}
+                </span>
+            );
+        },
     },
     {
       key: "actions",
