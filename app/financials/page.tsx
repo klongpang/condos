@@ -52,7 +52,9 @@ export default function FinancialsPage() {
   const pickTenantIdForCondo = useCallback(
     (condoId?: string) => {
       if (!condoId) return "";
-      const active = tenants.find((t) => t.condo_id === condoId && (t as any).is_active);
+      const active = tenants.find(
+        (t) => t.condo_id === condoId && (t as any).is_active
+      );
       if (active) return active.id;
       const anyone = tenants.find((t) => t.condo_id === condoId);
       return anyone?.id || "";
@@ -81,18 +83,25 @@ export default function FinancialsPage() {
   const [selectedFinancialRecordForFile, setSelectedFinancialRecordForFile] =
     useState<IncomeRecord | ExpenseRecord | null>(null);
   // ช่วยคำนวณ flag ให้อ่านง่าย (optional)
-  const isIncome = recordType === "income" && !!selectedFinancialRecordForFile
-  const isExpense = recordType === "expense" && !!selectedFinancialRecordForFile
+  const isIncome = recordType === "income" && !!selectedFinancialRecordForFile;
+  const isExpense =
+    recordType === "expense" && !!selectedFinancialRecordForFile;
 
-  const { documents, loading: documentsLoading, refetch: refetchDocuments } = useDocumentsDB({
-    incomeId:  isIncome  ? (selectedFinancialRecordForFile as IncomeRecord).id  : undefined,
-    expenseId: isExpense ? (selectedFinancialRecordForFile as ExpenseRecord).id : undefined,
-    scope:     isIncome ? "income" : isExpense ? "expense" : "any",
+  const {
+    documents,
+    loading: documentsLoading,
+    refetch: refetchDocuments,
+  } = useDocumentsDB({
+    incomeId: isIncome
+      ? (selectedFinancialRecordForFile as IncomeRecord).id
+      : undefined,
+    expenseId: isExpense
+      ? (selectedFinancialRecordForFile as ExpenseRecord).id
+      : undefined,
+    scope: isIncome ? "income" : isExpense ? "expense" : "any",
     // ถ้าต้องการให้ลิสต์ใน modal ตรงกับประเภทที่เลือกเท่านั้น ให้กรองด้วย:
     // documentType: documentType || undefined,   // (ใส่เฉพาะเวลาที่ผู้ใช้เลือกแล้ว)
   });
-
-
 
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [documentType, setDocumentType] = useState<string>("");
@@ -188,7 +197,8 @@ export default function FinancialsPage() {
       setFormData({
         id: record.id,
         condo_id: record.condo_id,
-        tenant_id: (record as any).tenant_id || pickTenantIdForCondo(record.condo_id), // ✅ auto fill
+        tenant_id:
+          (record as any).tenant_id || pickTenantIdForCondo(record.condo_id), // ✅ auto fill
         type: record.type,
         amount: record.amount.toString(),
         date: record.date,
@@ -213,8 +223,6 @@ export default function FinancialsPage() {
 
     setIsModalOpen(true);
   };
-
-
 
   // Filter records based on selected condo, year, and month
   const filteredIncomeRecords = useMemo(() => {
@@ -268,8 +276,11 @@ export default function FinancialsPage() {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const openFileModal = (record: IncomeRecord | ExpenseRecord, type: "income" | "expense") => {
-    setRecordType(type);                            // ✅ สำคัญ: เซ็ตชนิดให้ตรง
+  const openFileModal = (
+    record: IncomeRecord | ExpenseRecord,
+    type: "income" | "expense"
+  ) => {
+    setRecordType(type); // ✅ สำคัญ: เซ็ตชนิดให้ตรง
     setSelectedFinancialRecordForFile(record);
     setUploadedFiles([]);
     setDocumentType("");
@@ -317,19 +328,24 @@ export default function FinancialsPage() {
         }
       }
 
-      setNotification({ message: `อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`, type: "success" });
+      setNotification({
+        message: `อัปโหลดไฟล์สำเร็จ ${uploadedFiles.length} ไฟล์`,
+        type: "success",
+      });
       setUploadedFiles([]);
       setDocumentType("");
       setIsFileModalOpen(false);
       refetchDocuments();
     } catch (error: any) {
       console.error("Error uploading files:", error);
-      setNotification({ message: `เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ${error.message}`, type: "error" });
+      setNotification({
+        message: `เกิดข้อผิดพลาดในการอัปโหลดไฟล์: ${error.message}`,
+        type: "error",
+      });
     } finally {
       setIsUploading(false);
     }
   };
-
 
   const handleDocumentDelete = (
     docId: string,
@@ -472,7 +488,7 @@ export default function FinancialsPage() {
             <Edit className="h-4 w-4" />
           </button>
           <button
-            onClick={() => openFileModal(record, "income")}   // ✅ ส่ง "income"
+            onClick={() => openFileModal(record, "income")} // ✅ ส่ง "income"
             className="text-green-400 hover:text-green-300"
             title="แนบไฟล์"
           >
@@ -487,7 +503,6 @@ export default function FinancialsPage() {
           >
             <X className="h-4 w-4" />
           </button>
-
         </div>
       ),
     },
@@ -547,7 +562,7 @@ export default function FinancialsPage() {
             <Edit className="h-4 w-4" />
           </button>
           <button
-            onClick={() => openFileModal(record, "expense")}  // ✅ ส่ง "expense"
+            onClick={() => openFileModal(record, "expense")} // ✅ ส่ง "expense"
             className="text-green-400 hover:text-green-300"
             title="แนบไฟล์"
           >
@@ -568,14 +583,19 @@ export default function FinancialsPage() {
     },
   ];
 
-  const incomeCategories = ["ค่าเช่า", "ค่าที่จอดรถ", "ค่าปรับ", "อื่นๆ"];
+  const incomeCategories = [
+    "ค่าเช่า",
+    "ค่าที่จอดรถ",
+    "ค่าประกัน",
+    "ค่าปรับ",
+    "อื่นๆ",
+  ];
   const expenseCategories = [
     "ค่าบำรุงรักษา",
+    "ตกแต่งห้อง",
     "ค่าน้ำ/ไฟ",
     "ค่าประกัน",
     "ค่านายหน้า",
-    "ภาษีทรัพย์สิน",
-    "ค่าบริหารจัดการ",
     "อื่นๆ",
   ];
 
@@ -773,7 +793,6 @@ export default function FinancialsPage() {
                   </option>
                 ))}
               </select>
-
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -908,7 +927,8 @@ export default function FinancialsPage() {
         >
           <div className="space-y-4">
             <p className="text-sm text-gray-400">
-              เอกสารจะถูกผูกกับ{recordType === "income" ? "รายการรายรับ" : "รายการรายจ่าย"}นี้
+              เอกสารจะถูกผูกกับ
+              {recordType === "income" ? "รายการรายรับ" : "รายการรายจ่าย"}นี้
             </p>
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -962,7 +982,9 @@ export default function FinancialsPage() {
             {uploadedFiles.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-gray-300 mb-2">
-                  เอกสารของ{recordType === "income" ? "รายการรายรับ" : "รายการรายจ่าย"}นี้ ({documents.length} ไฟล์
+                  เอกสารของ
+                  {recordType === "income" ? "รายการรายรับ" : "รายการรายจ่าย"}
+                  นี้ ({documents.length} ไฟล์
                 </h4>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {uploadedFiles.map((file, index) => (
