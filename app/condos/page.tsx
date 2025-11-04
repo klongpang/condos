@@ -7,7 +7,8 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
-import { Notification } from "@/components/ui/notification"; // Import Notification
+import { Notification } from "@/components/ui/notification";
+import { DocumentPreview } from "@/components/ui/document-preview";
 import { useAuth } from "@/lib/auth-context";
 import type { Condo } from "@/lib/supabase";
 import { useCondosDB, useDocumentsDB } from "@/lib/hooks/use-database";
@@ -37,12 +38,12 @@ export default function CondosPage() {
     name: string;
   } | null>(null);
 
+  
   const [editingCondo, setEditingCondo] = useState<Condo | null>(null);
 
   const {
     documents: condoDocuments,
     loading: condoDocumentsLoading,
-    refetch: refetchDocuments,
   } = useDocumentsDB({
     condoId: selectedCondo?.id,
     scope: "condo",
@@ -188,7 +189,7 @@ export default function CondosPage() {
     setUploadedFiles([]);
     setDocumentType("");
     setIsFileModalOpen(true);
-    refetchDocuments(); // Refetch documents when opening modal
+    // Documents are automatically fetched by useDocumentsDB when selectedCondo changes
   };
 
   const handleFileSubmit = async () => {
@@ -222,7 +223,7 @@ export default function CondosPage() {
       setUploadedFiles([]);
       setDocumentType("");
       setIsFileModalOpen(false);
-      refetchDocuments(); // Refetch documents after successful upload
+      // Documents will be automatically updated via the hook's optimistic update
     } catch (error: any) {
       console.error("Error uploading files:", error);
       setNotification({
@@ -250,7 +251,7 @@ export default function CondosPage() {
       );
       if (!result.success) throw new Error(result.message);
       setNotification({ message: `เอกสาร "${docToDelete.name}" ถูกลบแล้ว`, type: "success" });
-      refetchDocuments();
+      // Documents will be automatically updated via the hook's optimistic update
     } catch (error: any) {
       console.error("Error deleting document:", error);
       setNotification({ message: `เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`, type: "error" });
@@ -685,64 +686,14 @@ export default function CondosPage() {
               </div>
             )}
 
-            {condoDocuments.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-300 mb-2">
-                  เอกสารที่มีอยู่ ({condoDocuments.length} ไฟล์):
-                </h4>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {condoDocuments.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between bg-gray-700 p-3 rounded-lg"
-                    >
-                      <div className="flex items-center flex-1 min-w-0">
-                        <File className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <span className="text-sm text-white truncate block">
-                            {doc.name}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {documentTypes.find(
-                              (t) => t.value === doc.document_type
-                            )?.label ||
-                              doc.document_type ||
-                              "ไม่ระบุประเภท"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
-                        {doc.file_url && (
-                          <a
-                            href={doc.file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-400 hover:text-blue-300"
-                            title="ดู/ดาวน์โหลด"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </a>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDocumentDelete(
-                              doc.id,
-                              doc.file_url || "",
-                              doc.name
-                            )
-                          }
-                          className="text-red-400 hover:text-red-300"
-                          title="ลบเอกสาร"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            <DocumentPreview
+              documents={condoDocuments}
+              documentTypes={documentTypes}
+              loading={condoDocumentsLoading}
+              onDeleteDocument={handleDocumentDelete}
+              title="เอกสารที่มีอยู่"
+              maxColumns={2}
+            />
 
             <div className="flex justify-end space-x-3 pt-4">
               <button
@@ -789,6 +740,7 @@ export default function CondosPage() {
           type="danger"
         />
 
+        
         {/* Delete Condo Confirmation Modal (ถ้าจะใช้ ให้เอาคอมเมนต์ออก) */}
         {/*
         <ConfirmationModal

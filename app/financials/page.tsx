@@ -21,6 +21,7 @@ import { Notification } from "@/components/ui/notification";
 import { StatsCard } from "@/components/ui/stats-card";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"; // Import ConfirmationModal
+import { DocumentPreview } from "@/components/ui/document-preview"; // Import DocumentPreview
 import {
   useFinancialRecordsDB,
   useCondosDB,
@@ -1020,60 +1021,14 @@ export default function FinancialsPage() {
 
             {documents.length > 0 && (
               <div>
-                <h4 className="text-sm font-medium text-gray-300 mb-2">
-                  เอกสารที่มีอยู่สำหรับคอนโดนี้ ({documents.length} ไฟล์):
-                </h4>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {documents.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between bg-gray-700 p-3 rounded-lg"
-                    >
-                      <div className="flex items-center flex-1 min-w-0">
-                        <File className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <span className="text-sm text-white truncate block">
-                            {doc.name}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {documentTypes.find(
-                              (t) => t.value === doc.document_type
-                            )?.label ||
-                              doc.document_type ||
-                              "ไม่ระบุประเภท"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2 ml-2 flex-shrink-0">
-                        {doc.file_url && (
-                          <a
-                            href={doc.file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-400 hover:text-blue-300"
-                            title="ดู/ดาวน์โหลด"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </a>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDocumentDelete(
-                              doc.id,
-                              doc.file_url || "",
-                              doc.name
-                            )
-                          }
-                          className="text-red-400 hover:text-red-300"
-                          title="ลบเอกสาร"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <DocumentPreview
+                  documents={documents}
+                  documentTypes={documentTypes}
+                  loading={documentsLoading}
+                  onDeleteDocument={handleDocumentDelete}
+                  title="เอกสารที่มีอยู่สำหรับรายการนี้"
+                  maxColumns={2}
+                />
               </div>
             )}
 
