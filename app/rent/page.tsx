@@ -859,7 +859,6 @@ export default function RentPage() {
                 <label
                   htmlFor="payment-file-upload"
                   className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg cursor-pointer transition-colors"
-                  onClick={(e) => e.preventDefault()}
                 >
                   <Upload className="h-4 w-4 mr-2" />
                   เลือกไฟล์
