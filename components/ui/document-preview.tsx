@@ -76,7 +76,7 @@ export function DocumentPreview({
     if (doc.file_url && isImageFile(doc.name)) {
       setPreviewImageUrl(doc.file_url);
       setPreviewImageName(doc.name);
-      setZoomLevel(0.5);
+      setZoomLevel(1);
       setRotation(0);
       setDragOffset({ x: 0, y: 0 }); // Reset drag position
       setIsImagePreviewOpen(true);
@@ -87,7 +87,6 @@ export function DocumentPreview({
   const handleZoomIn = useCallback(() => {
     setZoomLevel(prev => {
       const newZoom = Math.min(prev + 0.25, 3); // Max 3x zoom
-      console.log('Zoom in:', newZoom); // Debug log
       return newZoom;
     });
   }, []);
@@ -95,14 +94,13 @@ export function DocumentPreview({
   const handleZoomOut = useCallback(() => {
     setZoomLevel(prev => {
       const newZoom = Math.max(prev - 0.25, 0.5); // Min 0.5x zoom
-      console.log('Zoom out:', newZoom); // Debug log
       return newZoom;
     });
   }, []);
 
   // Fit to screen function
   const fitToScreen = useCallback(() => {
-    setZoomLevel(0.5);
+    setZoomLevel(1);
     setRotation(0);
     setDragOffset({ x: 0, y: 0 }); // Reset drag position
   }, []);
@@ -116,7 +114,6 @@ export function DocumentPreview({
   // Mouse drag handlers for panning
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (zoomLevel >= 1) {
-      console.log('Mouse down - starting drag', { zoomLevel, clientX: e.clientX, clientY: e.clientY });
       setIsDragging(true);
       setDragStart({
         x: e.clientX - dragOffset.x,
@@ -132,18 +129,15 @@ export function DocumentPreview({
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y
       };
-      console.log('Mouse move - dragging', { newOffset, isDragging });
       setDragOffset(newOffset);
     }
   }, [isDragging, dragStart]);
 
   const handleMouseUp = useCallback(() => {
-    console.log('Mouse up - ending drag');
     setIsDragging(false);
   }, []);
 
   const handleMouseLeave = useCallback(() => {
-    console.log('Mouse leave - ending drag');
     setIsDragging(false);
   }, []);
 
@@ -358,7 +352,7 @@ export function DocumentPreview({
           >
             <div className="w-full h-full flex items-center justify-center overflow-hidden">
               <div
-                className="relative transition-transform duration-200 ease-in-out"
+                className={`relative w-full h-full flex items-center justify-center ${isDragging ? '' : 'transition-transform duration-200 ease-in-out'}`}
                 style={{
                   transform: `translate(${dragOffset.x}px, ${dragOffset.y}px) scale(${zoomLevel}) rotate(${rotation}deg)`,
                   transformOrigin: 'center',
