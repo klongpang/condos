@@ -32,10 +32,17 @@ import {
   uploadDocument,
   deleteDocumentAction,
 } from "@/app/actions/document-actions"; // Import Server Actions
+import {
+  createTenantAction,
+  updateTenantAction,
+  endTenantContractAction,
+} from "@/app/actions/tenant-actions";
+
 
 export default function TenantsPage() {
   const { user } = useAuth();
-  const { tenants, loading, addTenant, updateTenant } = useTenantsDB(user?.id); // ดึงผู้เช่าที่เกี่ยวข้องกับ user
+  const { tenants, loading, refetch: refetchTenants } = useTenantsDB(user?.id); // ดึงผู้เช่าที่เกี่ยวข้องกับ user
+
   const { condos } = useCondosDB(user?.id); // ดึงเฉพาะ condos ของ user นั้นๆ
   const [isEndContractModalOpen, setIsEndContractModalOpen] = useState(false);
   const [selectedTenantForEnd, setSelectedTenantForEnd] =
@@ -130,17 +137,27 @@ export default function TenantsPage() {
 
     try {
       if (editingTenant) {
-        await updateTenant(editingTenant.id, tenantData);
-        setNotification({
-          message: `บันทึกสำเร็จ`,
-          type: "success",
-        });
+        const result = await updateTenantAction(editingTenant.id, tenantData);
+        if (result.success) {
+           setNotification({
+            message: `บันทึกสำเร็จ`,
+            type: "success",
+          });
+          refetchTenants();
+        } else {
+           throw new Error(result.message);
+        }
       } else {
-        await addTenant(tenantData);
-        setNotification({
-          message: `บันทึกสำเร็จ`,
-          type: "success",
-        });
+        const result = await createTenantAction(tenantData);
+        if (result.success) {
+          setNotification({
+             message: `บันทึกสำเร็จ`,
+             type: "success",
+           });
+           refetchTenants();
+        } else {
+           throw new Error(result.message);
+        }
       }
       resetForm();
     } catch (error: any) {
@@ -199,28 +216,21 @@ export default function TenantsPage() {
 
     try {
       // สร้างประวัติผู้เช่าใน tenant_history table
-      await tenantHistoryService.create({
-        condo_id: selectedTenantForEnd.condo_id,
-        full_name: selectedTenantForEnd.full_name,
-        phone: selectedTenantForEnd.phone,
-        line_id: selectedTenantForEnd.line_id,
-        rental_start: selectedTenantForEnd.rental_start,
-        rental_end: selectedTenantForEnd.rental_end,
-        actual_end_date: endContractData.actual_end_date,
-        deposit: selectedTenantForEnd.deposit,
-        monthly_rent: selectedTenantForEnd.monthly_rent,
-        end_reason: endContractData.end_reason as any,
-        notes: endContractData.notes,
-      });
+      const result = await endTenantContractAction(
+        selectedTenantForEnd.id,
+        selectedTenantForEnd, // Send full tenant object for history creation
+        {
+          end_reason: endContractData.end_reason,
+          actual_end_date: endContractData.actual_end_date,
+          notes: endContractData.notes,
+        }
+      );
 
-      // อัปเดตสถานะผู้เช่าให้เป็น inactive
-      await updateTenant(selectedTenantForEnd.id, {
-        is_active: false,
-        status: "ended",
-        end_reason: endContractData.end_reason,
-        actual_end_date: endContractData.actual_end_date,
-        notes: endContractData.notes,
-      });
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      
+      refetchTenants(); // Refresh data
 
       // รีเซ็ตฟอร์ม
       setIsEndContractModalOpen(false);
@@ -231,10 +241,10 @@ export default function TenantsPage() {
         notes: "",
       });
 
-      alert("สิ้นสุดสัญญาเรียบร้อยแล้ว");
-    } catch (error) {
+      setNotification({ message: "สิ้นสุดสัญญาเรียบร้อยแล้ว", type: "success" });
+    } catch (error: any) {
       console.error("Error ending contract:", error);
-      alert("เกิดข้อผิดพลาดในการสิ้นสุดสัญญา");
+      setNotification({ message: `เกิดข้อผิดพลาดในการสิ้นสุดสัญญา: ${error.message}`, type: "error" });
     }
   };
 

@@ -35,6 +35,12 @@ import {
   uploadDocument,
   deleteDocumentAction,
 } from "@/app/actions/document-actions"; // Import Server Actions
+import {
+  createPaymentAction,
+  updatePaymentAction,
+  deletePaymentAction,
+} from "@/app/actions/rent-actions";
+
 import { NumericFormat } from "react-number-format";
 
 export default function RentPage() {
@@ -42,9 +48,6 @@ export default function RentPage() {
   const {
     payments,
     loading,
-    addPayment,
-    updatePayment,
-    deletePayment,
     refetch: refetchPayments,
   } = useRentPaymentsDB(user?.id);
   const { condos } = useCondosDB(user?.id);
@@ -147,16 +150,16 @@ export default function RentPage() {
   const confirmDelete = async () => {
     if (paymentToDelete) {
       try {
-        const success = await deletePayment(paymentToDelete.id);
-        if (success) {
+        const result = await deletePaymentAction(paymentToDelete.id);
+        if (result.success) {
           setNotification({
             message: "ลบรายการชำระเงินสำเร็จ",
             type: "success",
           });
-          refetchPayments(); // Refetch data after deletion
+          refetchPayments(); // Refetch data after deletion to update local state
         } else {
           setNotification({
-            message: "เกิดข้อผิดพลาดในการลบรายการชำระเงิน",
+            message: result.message || "เกิดข้อผิดพลาดในการลบรายการชำระเงิน",
             type: "error",
           });
         }
@@ -291,45 +294,61 @@ export default function RentPage() {
     };
 
     try {
-      let savedPayment: RentPayment | null = null;
+      let result;
+      
       if (selectedPayment) {
         // Editing existing payment
-        savedPayment = await updatePayment(selectedPayment.id, paymentData);
+        result = await updatePaymentAction(selectedPayment.id, paymentData);
       } else {
         // Creating new payment
-        savedPayment = await addPayment(paymentData);
+        result = await createPaymentAction(paymentData);
       }
 
-      if (savedPayment) {
+      if (result.success) {
+        const savedPaymentId = selectedPayment ? selectedPayment.id : result.data?.id;
+
         // Handle file uploads if any
-        if (uploadedFiles.length > 0) {
+        if (uploadedFiles.length > 0 && savedPaymentId) {
           setIsUploading(true);
+          // Need to fetch latest payment data to get condo_id/tenant_id if it was a new creation
+          // But here we can use formData and the result
+          
+          // Note: Ideally we should use the returned data from server action, 
+          // but for simplicity and since we have formData, we can proceed.
+          // However, for condo_id we need it. 
+          // Let's assume result.data contains the created record with tenant relation if possible,
+          // but our action returns simple insert result.
+          // We can use the tenant_id from formData to find condo_id from tenants list.
+          
+          const tenant = tenants.find(t => t.id === formData.tenant_id);
+          const condoId = tenant?.condo_id || "";
+
           for (const file of uploadedFiles) {
             const uploadFormData = new FormData();
             uploadFormData.append("file", file);
-            // Link to condo of the tenant for this payment
-            uploadFormData.append(
-              "condoId",
-              savedPayment.tenant?.condo_id || ""
-            );
-            uploadFormData.append("documentType", "payment_receipt"); // Specific document type for payment receipts
-            uploadFormData.append("paymentId", savedPayment.id);
-            uploadFormData.append("tenantId", savedPayment.tenant_id || "")
-            const result = await uploadDocument(uploadFormData);
-            if (!result.success) {
-              throw new Error(result.message);
+            uploadFormData.append("condoId", condoId);
+            uploadFormData.append("documentType", "payment_receipt");
+            uploadFormData.append("paymentId", savedPaymentId);
+            uploadFormData.append("tenantId", formData.tenant_id);
+            
+            const uploadResult = await uploadDocument(uploadFormData);
+            if (!uploadResult.success) {
+              console.error("Error uploading file:", uploadResult.message);
+              // Don't throw here to avoid rollback of payment creation, just warn
             }
           }
           setNotification({
-            message: `บันทึกสำเร็จ ${uploadedFiles.length} ไฟล์`,
+            message: `บันทึกข้อมูลและ ${uploadedFiles.length} ไฟล์สำเร็จ`,
             type: "success",
           });
+        } else {
+          setNotification({ message: `บันทึกสำเร็จ`, type: "success" });
         }
-        setNotification({ message: `บันทึกสำเร็จ`, type: "success" });
+        
         refetchPayments(); // Refresh data after save
       } else {
         setNotification({
-          message: "เกิดข้อผิดพลาดในการบันทึกรายการชำระเงิน",
+          message: result.message || "เกิดข้อผิดพลาดในการบันทึกรายการชำระเงิน",
           type: "error",
         });
       }

@@ -16,13 +16,22 @@ import {
   uploadDocument,
   deleteDocumentAction,
 } from "@/app/actions/document-actions"; // Import Server Actions
+import {
+  createCondoAction,
+  updateCondoAction,
+  deleteCondoAction,
+} from "@/app/actions/condo-actions";
+
 import { NumericFormat } from "react-number-format";
 
 export default function CondosPage() {
   const { user } = useAuth();
-  const { condos, loading, addCondo, updateCondo, deleteCondo } = useCondosDB(
+  /* const { user } = useAuth(); already declared above */
+  const { condos, loading, refetch: refetchCondos } = useCondosDB(
     user?.id
   );
+
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
 
@@ -44,6 +53,7 @@ export default function CondosPage() {
   const {
     documents: condoDocuments,
     loading: condoDocumentsLoading,
+    refetch: refetchDocuments,
   } = useDocumentsDB({
     condoId: selectedCondo?.id,
     scope: "condo",
@@ -93,14 +103,24 @@ export default function CondosPage() {
 
     try {
       if (editingCondo) {
-        await updateCondo(editingCondo.id, condoData);
-        setNotification({
-          message: "บันทึกสำเร็จ",
-          type: "success",
-        });
+        const result = await updateCondoAction(editingCondo.id, condoData);
+        if (result.success) {
+          setNotification({
+            message: "บันทึกสำเร็จ",
+            type: "success",
+          });
+          refetchCondos();
+        } else {
+          throw new Error(result.message);
+        }
       } else {
-        await addCondo(condoData);
-        setNotification({ message: "เพิ่มคอนโดใหม่สำเร็จ", type: "success" });
+        const result = await createCondoAction(condoData);
+        if (result.success) {
+          setNotification({ message: "เพิ่มคอนโดใหม่สำเร็จ", type: "success" });
+          refetchCondos();
+        } else {
+          throw new Error(result.message);
+        }
       }
       resetForm();
     } catch (error) {
@@ -157,11 +177,16 @@ export default function CondosPage() {
   const confirmDelete = async () => {
     if (selectedCondo) {
       try {
-        await updateCondo(selectedCondo.id, { is_active: false });
-        setNotification({
-          message: `คอนโด "${selectedCondo.name}" ถูกปิดใช้งานแล้ว`,
-          type: "success",
-        });
+        const result = await updateCondoAction(selectedCondo.id, { is_active: false });
+        if (result.success) {
+          setNotification({
+            message: `คอนโด "${selectedCondo.name}" ถูกปิดใช้งานแล้ว`,
+            type: "success",
+          });
+          refetchCondos();
+        } else {
+          throw new Error(result.message);
+        }
       } catch (error) {
         console.error("Error deactivating condo:", error);
         setNotification({
@@ -223,7 +248,7 @@ export default function CondosPage() {
       setUploadedFiles([]);
       setDocumentType("");
       setIsFileModalOpen(false);
-      // Documents will be automatically updated via the hook's optimistic update
+      refetchDocuments();
     } catch (error: any) {
       console.error("Error uploading files:", error);
       setNotification({
@@ -251,7 +276,7 @@ export default function CondosPage() {
       );
       if (!result.success) throw new Error(result.message);
       setNotification({ message: `เอกสาร "${docToDelete.name}" ถูกลบแล้ว`, type: "success" });
-      // Documents will be automatically updated via the hook's optimistic update
+      refetchDocuments();
     } catch (error: any) {
       console.error("Error deleting document:", error);
       setNotification({ message: `เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`, type: "error" });

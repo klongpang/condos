@@ -34,6 +34,15 @@ import {
   uploadDocument,
   deleteDocumentAction,
 } from "@/app/actions/document-actions"; // Import Server Actions
+import {
+  createIncomeAction,
+  updateIncomeAction,
+  deleteIncomeAction,
+  createExpenseAction,
+  updateExpenseAction,
+  deleteExpenseAction,
+} from "@/app/actions/financial-actions";
+
 
 export default function FinancialsPage() {
   const { user } = useAuth();
@@ -43,13 +52,9 @@ export default function FinancialsPage() {
     incomeRecords,
     expenseRecords,
     loading,
-    addIncomeRecord,
-    addExpenseRecord,
-    updateIncomeRecord,
-    updateExpenseRecord,
-    deleteIncomeRecord,
-    deleteExpenseRecord,
+    refetch: refetchFinancials,
   } = useFinancialRecordsDB(user?.id); // ดึงข้อมูลการเงินที่เกี่ยวข้องกับ user
+
   const pickTenantIdForCondo = useCallback(
     (condoId?: string) => {
       if (!condoId) return "";
@@ -151,23 +156,29 @@ export default function FinancialsPage() {
     try {
       if (editingRecord) {
         if (recordType === "income") {
-          await updateIncomeRecord(editingRecord.id, recordData);
+          const result = await updateIncomeAction(editingRecord.id, recordData);
+          if (!result.success) throw new Error(result.message);
         } else {
-          await updateExpenseRecord(editingRecord.id, recordData);
+          const result = await updateExpenseAction(editingRecord.id, recordData);
+          if (!result.success) throw new Error(result.message);
         }
         setNotification({ message: `บันทึกสำเร็จ`, type: "success" });
+        refetchFinancials();
       } else {
         if (recordType === "income") {
-          await addIncomeRecord(recordData);
+          const result = await createIncomeAction(recordData);
+          if (!result.success) throw new Error(result.message);
         } else {
-          await addExpenseRecord(recordData);
+          const result = await createExpenseAction(recordData);
+          if (!result.success) throw new Error(result.message);
         }
         setNotification({ message: `บันทึกสำเร็จ`, type: "success" });
+        refetchFinancials();
       }
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error saving ${recordType} record:`, error);
-      setNotification({ message: `บันทึกเกิดข้อผิดพลาด`, type: "error" });
+      setNotification({ message: `บันทึกเกิดข้อผิดพลาด: ${error.message || ""}`, type: "error" });
     }
   };
 
@@ -397,14 +408,17 @@ export default function FinancialsPage() {
     if (recordToDelete) {
       try {
         if (recordToDelete.type === "income") {
-          await deleteIncomeRecord(recordToDelete.id);
+          const result = await deleteIncomeAction(recordToDelete.id);
+          if (!result.success) throw new Error(result.message);
         } else {
-          await deleteExpenseRecord(recordToDelete.id);
+          const result = await deleteExpenseAction(recordToDelete.id);
+          if (!result.success) throw new Error(result.message);
         }
         setNotification({ message: `ลบสำเร็จ`, type: "success" });
-      } catch (error) {
+        refetchFinancials();
+      } catch (error: any) {
         console.error("Error deleting record:", error);
-        setNotification({ message: `การลบเกิดผิดพลาด`, type: "error" });
+        setNotification({ message: `การลบเกิดผิดพลาด: ${error.message || ""}`, type: "error" });
       } finally {
         setIsDeleteConfirmModalOpen(false);
         setRecordToDelete(null);
