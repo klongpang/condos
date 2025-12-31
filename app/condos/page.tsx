@@ -11,7 +11,8 @@ import { Notification } from "@/components/ui/notification";
 import { DocumentPreview } from "@/components/ui/document-preview";
 import { useAuth } from "@/lib/auth-context";
 import type { Condo } from "@/lib/supabase";
-import { useCondosDB, useDocumentsDB } from "@/lib/hooks/use-database";
+import { useCondos } from "@/lib/hooks/use-queries";
+import { useDocumentsDB } from "@/lib/hooks/use-database";
 import {
   uploadDocument,
   deleteDocumentAction,
@@ -26,10 +27,7 @@ import { NumericFormat } from "react-number-format";
 
 export default function CondosPage() {
   const { user } = useAuth();
-  /* const { user } = useAuth(); already declared above */
-  const { condos, loading, refetch: refetchCondos } = useCondosDB(
-    user?.id
-  );
+  const { condos, loading, refetch: refetchCondos } = useCondos(user?.id);
 
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -82,8 +80,50 @@ export default function CondosPage() {
     payment_due_date: "",
   });
 
+  // Form validation errors
+  const [formErrors, setFormErrors] = useState<{
+    name?: string;
+    address?: string;
+    purchase_price?: string;
+    purchase_date?: string;
+    installment_amount?: string;
+    payment_due_date?: string;
+  }>({});
+
+  const validateForm = () => {
+    const errors: typeof formErrors = {};
+    
+    if (!formData.name.trim()) {
+      errors.name = "กรุณากรอกชื่อคอนโด";
+    }
+    if (!formData.address.trim()) {
+      errors.address = "กรุณากรอกที่อยู่";
+    }
+    if (!formData.purchase_price) {
+      errors.purchase_price = "กรุณากรอกราคาซื้อ";
+    }
+    if (!formData.purchase_date) {
+      errors.purchase_date = "กรุณาเลือกวันที่ซื้อ";
+    }
+    if (!formData.installment_amount) {
+      errors.installment_amount = "กรุณากรอกยอดผ่อนต่อเดือน";
+    }
+    if (!formData.payment_due_date) {
+      errors.payment_due_date = "กรุณากรอกวันที่ครบชำระ";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form before submitting
+    if (!validateForm()) {
+      return;
+    }
 
     const condoData = {
       ...formData,
@@ -146,7 +186,7 @@ export default function CondosPage() {
       installment_amount: "",
       payment_due_date: "",
     });
-
+    setFormErrors({});
     setEditingCondo(null);
     setIsModalOpen(false);
   };
@@ -409,20 +449,23 @@ export default function CondosPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  ชื่อคอนโด *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.name ? 'text-red-400' : 'text-gray-300'}`}>
+                  ชื่อคอนโด <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  required
                   maxLength={50}
                   placeholder="ระบุชื่อคอนโด"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, name: e.target.value });
+                    if (formErrors.name) setFormErrors({ ...formErrors, name: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.name ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 />
+                {formErrors.name && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.name}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -442,20 +485,23 @@ export default function CondosPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                ที่อยู่ *
+              <label className={`block text-sm font-medium mb-1 ${formErrors.address ? 'text-red-400' : 'text-gray-300'}`}>
+                ที่อยู่ <span className="text-red-500">*</span>
               </label>
               <textarea
-                required
                 value={formData.address}
                 maxLength={255}
                 placeholder="ระบุที่อยู่"
-                onChange={(e) =>
-                  setFormData({ ...formData, address: e.target.value })
-                }
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                onChange={(e) => {
+                  setFormData({ ...formData, address: e.target.value });
+                  if (formErrors.address) setFormErrors({ ...formErrors, address: undefined });
+                }}
+                className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.address ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 rows={2}
               />
+              {formErrors.address && (
+                <p className="text-red-400 text-sm mt-1">{formErrors.address}</p>
+              )}
             </div>
 
             <div>
@@ -476,35 +522,41 @@ export default function CondosPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  ราคาซื้อ (บาท) *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.purchase_price ? 'text-red-400' : 'text-gray-300'}`}>
+                  ราคาซื้อ (บาท) <span className="text-red-500">*</span>
                 </label>
                 <NumericFormat
                   thousandSeparator=","
                   decimalScale={2}
                   allowNegative={false}
                   value={formData.purchase_price}
-                  required
                   onValueChange={(values) => {
                     setFormData({ ...formData, purchase_price: values.value });
+                    if (formErrors.purchase_price) setFormErrors({ ...formErrors, purchase_price: undefined });
                   }}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.purchase_price ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                   placeholder="0.00"
                 />
+                {formErrors.purchase_price && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.purchase_price}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  วันที่ซื้อ *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.purchase_date ? 'text-red-400' : 'text-gray-300'}`}>
+                  วันที่ซื้อ <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
-                  required
                   value={formData.purchase_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, purchase_date: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, purchase_date: e.target.value });
+                    if (formErrors.purchase_date) setFormErrors({ ...formErrors, purchase_date: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.purchase_date ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 />
+                {formErrors.purchase_date && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.purchase_date}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -537,13 +589,12 @@ export default function CondosPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  ยอดผ่อนต่อเดือน (บาท) *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.installment_amount ? 'text-red-400' : 'text-gray-300'}`}>
+                  ยอดผ่อนต่อเดือน (บาท) <span className="text-red-500">*</span>
                 </label>
                 <NumericFormat
                   thousandSeparator=","
                   decimalScale={2}
-                  required
                   allowNegative={false}
                   value={formData.installment_amount}
                   onValueChange={(values) => {
@@ -551,29 +602,36 @@ export default function CondosPage() {
                       ...formData,
                       installment_amount: values.value,
                     });
+                    if (formErrors.installment_amount) setFormErrors({ ...formErrors, installment_amount: undefined });
                   }}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.installment_amount ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                   placeholder="0.00"
                 />
+                {formErrors.installment_amount && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.installment_amount}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  วันที่ครบชำระรายเดือน *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.payment_due_date ? 'text-red-400' : 'text-gray-300'}`}>
+                  วันที่ครบชำระรายเดือน <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  maxLength={20} // จำกัดความยาวไม่เกิน 20 ตัวอักษร
-                  required
+                  maxLength={20}
                   value={formData.payment_due_date || ""}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setFormData({
                       ...formData,
                       payment_due_date: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                    });
+                    if (formErrors.payment_due_date) setFormErrors({ ...formErrors, payment_due_date: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.payment_due_date ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                   placeholder="ระบุวันครบชำระ"
                 />
+                {formErrors.payment_due_date && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.payment_due_date}</p>
+                )}
               </div>
 
               <div>

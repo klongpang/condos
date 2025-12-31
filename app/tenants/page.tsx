@@ -22,11 +22,8 @@ import { Modal } from "@/components/ui/modal";
 import { DocumentPreview } from "@/components/ui/document-preview";
 import { useAuth } from "@/lib/auth-context";
 import type { Tenant } from "@/lib/supabase";
-import {
-  useTenantsDB,
-  useCondosDB,
-  useDocumentsDB,
-} from "@/lib/hooks/use-database";
+import { useCondos, useTenants } from "@/lib/hooks/use-queries";
+import { useDocumentsDB } from "@/lib/hooks/use-database";
 import { tenantHistoryService } from "@/lib/database";
 import {
   uploadDocument,
@@ -41,9 +38,8 @@ import {
 
 export default function TenantsPage() {
   const { user } = useAuth();
-  const { tenants, loading, refetch: refetchTenants } = useTenantsDB(user?.id); // ดึงผู้เช่าที่เกี่ยวข้องกับ user
-
-  const { condos } = useCondosDB(user?.id); // ดึงเฉพาะ condos ของ user นั้นๆ
+  const { tenants, loading, refetch: refetchTenants } = useTenants(user?.id);
+  const { condos } = useCondos(user?.id);
   const [isEndContractModalOpen, setIsEndContractModalOpen] = useState(false);
   const [selectedTenantForEnd, setSelectedTenantForEnd] =
     useState<Tenant | null>(null);
@@ -77,6 +73,38 @@ export default function TenantsPage() {
     deposit: "",
     monthly_rent: "",
   });
+
+  // Form validation errors
+  const [formErrors, setFormErrors] = useState<{
+    condo_id?: string;
+    full_name?: string;
+    rental_start?: string;
+    rental_end?: string;
+    monthly_rent?: string;
+  }>({});
+
+  const validateForm = () => {
+    const errors: typeof formErrors = {};
+    
+    if (!formData.full_name.trim()) {
+      errors.full_name = "กรุณากรอกชื่อ-นามสกุล";
+    }
+    if (!formData.condo_id) {
+      errors.condo_id = "กรุณาเลือกคอนโด";
+    }
+    if (!formData.rental_start) {
+      errors.rental_start = "กรุณาเลือกวันที่เริ่มเช่า";
+    }
+    if (!formData.rental_end) {
+      errors.rental_end = "กรุณาเลือกวันที่สิ้นสุดสัญญา";
+    }
+    if (!formData.monthly_rent) {
+      errors.monthly_rent = "กรุณากรอกค่าเช่าต่อเดือน";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   // Document states for tenant
   const [isTenantFileModalOpen, setIsTenantFileModalOpen] = useState(false); // New state for file modal
@@ -119,6 +147,11 @@ export default function TenantsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form before submitting
+    if (!validateForm()) {
+      return;
+    }
 
     const tenantData = {
       condo_id: formData.condo_id,
@@ -181,6 +214,7 @@ export default function TenantsPage() {
       deposit: "",
       monthly_rent: "",
     });
+    setFormErrors({});
     setEditingTenant(null);
     setIsModalOpen(false);
   };
@@ -605,30 +639,33 @@ export default function TenantsPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  ชื่อ-นามสกุล *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.full_name ? 'text-red-400' : 'text-gray-300'}`}>
+                  ชื่อ-นามสกุล <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  required
                   value={formData.full_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, full_name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, full_name: e.target.value });
+                    if (formErrors.full_name) setFormErrors({ ...formErrors, full_name: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.full_name ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 />
+                {formErrors.full_name && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.full_name}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  คอนโด *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.condo_id ? 'text-red-400' : 'text-gray-300'}`}>
+                  คอนโด <span className="text-red-500">*</span>
                 </label>
                 <select
-                  required
                   value={formData.condo_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, condo_id: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, condo_id: e.target.value });
+                    if (formErrors.condo_id) setFormErrors({ ...formErrors, condo_id: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.condo_id ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 >
                   <option value="">เลือกคอนโด</option>
                   {condos.map((condo) => (
@@ -637,6 +674,9 @@ export default function TenantsPage() {
                     </option>
                   ))}
                 </select>
+                {formErrors.condo_id && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.condo_id}</p>
+                )}
               </div>
             </div>
 
@@ -671,32 +711,38 @@ export default function TenantsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  วันที่เริ่มเช่า *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.rental_start ? 'text-red-400' : 'text-gray-300'}`}>
+                  วันที่เริ่มเช่า <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
-                  required
                   value={formData.rental_start}
-                  onChange={(e) =>
-                    setFormData({ ...formData, rental_start: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, rental_start: e.target.value });
+                    if (formErrors.rental_start) setFormErrors({ ...formErrors, rental_start: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.rental_start ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 />
+                {formErrors.rental_start && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.rental_start}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  วันที่สิ้นสุดสัญญา *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.rental_end ? 'text-red-400' : 'text-gray-300'}`}>
+                  วันที่สิ้นสุดสัญญา <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
-                  required
                   value={formData.rental_end}
-                  onChange={(e) =>
-                    setFormData({ ...formData, rental_end: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, rental_end: e.target.value });
+                    if (formErrors.rental_end) setFormErrors({ ...formErrors, rental_end: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.rental_end ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 />
+                {formErrors.rental_end && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.rental_end}</p>
+                )}
               </div>
             </div>
 
@@ -716,19 +762,22 @@ export default function TenantsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  ค่าเช่าต่อเดือน (บาท) *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.monthly_rent ? 'text-red-400' : 'text-gray-300'}`}>
+                  ค่าเช่าต่อเดือน (บาท) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
                   step="0.01"
-                  required
                   value={formData.monthly_rent}
-                  onChange={(e) =>
-                    setFormData({ ...formData, monthly_rent: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, monthly_rent: e.target.value });
+                    if (formErrors.monthly_rent) setFormErrors({ ...formErrors, monthly_rent: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.monthly_rent ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 />
+                {formErrors.monthly_rent && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.monthly_rent}</p>
+                )}
               </div>
             </div>
 

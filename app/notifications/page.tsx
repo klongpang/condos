@@ -15,18 +15,14 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/lib/auth-context";
-import {
-  useNotificationsDB,
-  useCondosDB,
-  useTenantsDB,
-} from "@/lib/hooks/use-database";
+import { useCondos, useTenants, useNotifications } from "@/lib/hooks/use-queries";
 
 export default function NotificationsPage() {
   const { user } = useAuth();
   const { notifications, loading, markAsRead, markAllAsRead, refetch } =
-    useNotificationsDB(user?.id);
-  const { condos } = useCondosDB(user?.id);
-  const { tenants } = useTenantsDB(user?.id);
+    useNotifications(user?.id);
+  const { condos } = useCondos(user?.id);
+  const { tenants } = useTenants(user?.id);
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear().toString()
   );

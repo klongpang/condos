@@ -12,18 +12,14 @@ import {
 import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
-import { useTenantHistoryDB } from "@/lib/hooks/use-database";
-import { useCondosDB } from "@/lib/hooks/use-database";
+import { useCondos, useTenantHistory } from "@/lib/hooks/use-queries";
 import { useAuth } from "@/lib/auth-context";
 import type { TenantHistory } from "@/lib/supabase";
-// ลบบรรทัดนี้: import { mockCondos } from "@/lib/mock-data"
 
 export default function TenantHistoryPage() {
   const { user } = useAuth();
-  const { condos } = useCondosDB(user?.id);
-  const { tenantHistory, loading, error, refresh } = useTenantHistoryDB(
-    user?.id
-  );
+  const { condos } = useCondos(user?.id);
+  const { tenantHistory, loading, error, refresh } = useTenantHistory(user?.id);
   const [selectedHistory, setSelectedHistory] = useState<TenantHistory | null>(
     null
   );

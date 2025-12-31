@@ -22,12 +22,8 @@ import { StatsCard } from "@/components/ui/stats-card";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"; // Import ConfirmationModal
 import { DocumentPreview } from "@/components/ui/document-preview"; // Import DocumentPreview
-import {
-  useFinancialRecordsDB,
-  useCondosDB,
-  useDocumentsDB,
-  useTenantsDB,
-} from "@/lib/hooks/use-database";
+import { useCondos, useTenants, useFinancialRecords } from "@/lib/hooks/use-queries";
+import { useDocumentsDB } from "@/lib/hooks/use-database";
 import { useAuth } from "@/lib/auth-context";
 import type { IncomeRecord, ExpenseRecord } from "@/lib/supabase";
 import {
@@ -46,14 +42,14 @@ import {
 
 export default function FinancialsPage() {
   const { user } = useAuth();
-  const { condos } = useCondosDB(user?.id); // ดึงเฉพาะ condos ของ user นั้นๆ
-  const { tenants } = useTenantsDB(user?.id);
+  const { condos } = useCondos(user?.id);
+  const { tenants } = useTenants(user?.id);
   const {
     incomeRecords,
     expenseRecords,
     loading,
     refetch: refetchFinancials,
-  } = useFinancialRecordsDB(user?.id); // ดึงข้อมูลการเงินที่เกี่ยวข้องกับ user
+  } = useFinancialRecords(user?.id);
 
   const pickTenantIdForCondo = useCallback(
     (condoId?: string) => {
@@ -140,8 +136,45 @@ export default function FinancialsPage() {
     category: "",
   });
 
+  // Form validation errors
+  const [formErrors, setFormErrors] = useState<{
+    condo_id?: string;
+    type?: string;
+    category?: string;
+    amount?: string;
+    date?: string;
+  }>({});
+
+  const validateForm = () => {
+    const errors: typeof formErrors = {};
+    
+    if (!formData.condo_id) {
+      errors.condo_id = "กรุณาเลือกคอนโด";
+    }
+    if (!formData.type) {
+      errors.type = "กรุณากรอกหัวข้อ";
+    }
+    if (!formData.category) {
+      errors.category = "กรุณาเลือกหมวดหมู่";
+    }
+    if (!formData.amount) {
+      errors.amount = "กรุณากรอกจำนวนเงิน";
+    }
+    if (!formData.date) {
+      errors.date = "กรุณาเลือกวันที่";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form before submitting
+    if (!validateForm()) {
+      return;
+    }
 
     const recordData = {
       condo_id: formData.condo_id,
@@ -193,6 +226,7 @@ export default function FinancialsPage() {
       description: "",
       category: "",
     });
+    setFormErrors({});
     setEditingRecord(null);
     setIsModalOpen(false);
   };
@@ -785,21 +819,21 @@ export default function FinancialsPage() {
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                คอนโด *
+              <label className={`block text-sm font-medium mb-1 ${formErrors.condo_id ? 'text-red-400' : 'text-gray-300'}`}>
+                คอนโด <span className="text-red-500">*</span>
               </label>
               <select
-                required
                 value={formData.condo_id}
                 onChange={(e) => {
                   const nextCondoId = e.target.value;
                   setFormData((prev) => ({
                     ...prev,
                     condo_id: nextCondoId,
-                    tenant_id: pickTenantIdForCondo(nextCondoId), // ✅ auto fill ผู้เช่า
+                    tenant_id: pickTenantIdForCondo(nextCondoId),
                   }));
+                  if (formErrors.condo_id) setFormErrors({ ...formErrors, condo_id: undefined });
                 }}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.condo_id ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
               >
                 <option value="">เลือกคอนโด</option>
                 {condos.map((condo) => (
@@ -808,40 +842,45 @@ export default function FinancialsPage() {
                   </option>
                 ))}
               </select>
+              {formErrors.condo_id && (
+                <p className="text-red-400 text-sm mt-1">{formErrors.condo_id}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  หัวข้อ *
-                </label>{" "}
-                {/* Changed label */}
+                <label className={`block text-sm font-medium mb-1 ${formErrors.type ? 'text-red-400' : 'text-gray-300'}`}>
+                  หัวข้อ <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
-                  required
                   value={formData.type}
-                  onChange={(e) =>
-                    setFormData({ ...formData, type: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, type: e.target.value });
+                    if (formErrors.type) setFormErrors({ ...formErrors, type: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.type ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                   placeholder={
                     recordType === "income"
                       ? "เช่น ค่าเช่ารายเดือน"
                       : "เช่น ค่าซ่อมแอร์"
                   }
                 />
+                {formErrors.type && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.type}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  หมวดหมู่ *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.category ? 'text-red-400' : 'text-gray-300'}`}>
+                  หมวดหมู่ <span className="text-red-500">*</span>
                 </label>
                 <select
-                  required
                   value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, category: e.target.value });
+                    if (formErrors.category) setFormErrors({ ...formErrors, category: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.category ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 >
                   <option value="">เลือกหมวดหมู่</option>
                   {(recordType === "income"
@@ -853,13 +892,16 @@ export default function FinancialsPage() {
                     </option>
                   ))}
                 </select>
+                {formErrors.category && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.category}</p>
+                )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  จำนวนเงิน (บาท) *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.amount ? 'text-red-400' : 'text-gray-300'}`}>
+                  จำนวนเงิน (บาท) <span className="text-red-500">*</span>
                 </label>
                 <NumericFormat
                   thousandSeparator=","
@@ -868,24 +910,31 @@ export default function FinancialsPage() {
                   value={formData.amount}
                   onValueChange={(values) => {
                     setFormData({ ...formData, amount: values.value });
+                    if (formErrors.amount) setFormErrors({ ...formErrors, amount: undefined });
                   }}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.amount ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                   placeholder="0.00"
                 />
+                {formErrors.amount && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.amount}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  วันที่ *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.date ? 'text-red-400' : 'text-gray-300'}`}>
+                  วันที่ <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
-                  required
                   value={formData.date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, date: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, date: e.target.value });
+                    if (formErrors.date) setFormErrors({ ...formErrors, date: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.date ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 />
+                {formErrors.date && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.date}</p>
+                )}
               </div>
             </div>
 

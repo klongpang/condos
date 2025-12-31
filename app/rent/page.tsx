@@ -23,12 +23,8 @@ import { Notification } from "@/components/ui/notification"; // Import Notificat
 // Import ConfirmationModal
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { DocumentPreview } from "@/components/ui/document-preview"; // Import DocumentPreview
-import {
-  useRentPaymentsDB,
-  useCondosDB,
-  useTenantsDB,
-  useDocumentsDB,
-} from "@/lib/hooks/use-database"; // Import useDocumentsDB
+import { useCondos, useTenants, useRentPayments } from "@/lib/hooks/use-queries";
+import { useDocumentsDB } from "@/lib/hooks/use-database"; // Import useDocumentsDB
 import { useAuth } from "@/lib/auth-context";
 import type { RentPayment } from "@/lib/supabase";
 import {
@@ -49,9 +45,9 @@ export default function RentPage() {
     payments,
     loading,
     refetch: refetchPayments,
-  } = useRentPaymentsDB(user?.id);
-  const { condos } = useCondosDB(user?.id);
-  const { tenants } = useTenantsDB(user?.id);
+  } = useRentPayments(user?.id);
+  const { condos } = useCondos(user?.id);
+  const { tenants } = useTenants(user?.id);
   const [isCreatePaymentModalOpen, setIsCreatePaymentModalOpen] =
     useState(false);
   const [isEditPaymentModalOpen, setIsEditPaymentModalOpen] = useState(false); // New state for edit modal
@@ -133,6 +129,34 @@ export default function RentPage() {
     status: "unpaid" as "unpaid" | "paid" | "overdue",
     notes: "",
   });
+
+  // Form validation errors
+  const [formErrors, setFormErrors] = useState<{
+    tenant_id?: string;
+    amount?: string;
+    due_date?: string;
+    paid_date?: string;
+  }>({});
+
+  const validatePaymentForm = () => {
+    const errors: typeof formErrors = {};
+    
+    if (!formData.tenant_id) {
+      errors.tenant_id = "กรุณาเลือกผู้เช่า";
+    }
+    if (!formData.amount) {
+      errors.amount = "กรุณากรอกจำนวนเงิน";
+    }
+    if (!formData.due_date) {
+      errors.due_date = "กรุณาเลือกวันครบกำหนด";
+    }
+    if (formData.status === "paid" && !formData.paid_date) {
+      errors.paid_date = "กรุณาเลือกวันที่ชำระ";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   // Add new states for delete functionality
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -236,6 +260,7 @@ export default function RentPage() {
       status: "unpaid",
       notes: "",
     });
+    setFormErrors({});
     setUploadedFiles([]);
     setIsCreatePaymentModalOpen(true);
   };
@@ -267,20 +292,9 @@ export default function RentPage() {
 
   const handleSavePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!formData.tenant_id || !formData.due_date || !formData.amount) {
-      setNotification({
-        message: "กรุณากรอกข้อมูลที่จำเป็น: ผู้เช่า, จำนวนเงิน, และวันครบกำหนด",
-        type: "error",
-      });
-      return;
-    }
-
-    if (formData.status === "paid" && !formData.paid_date) {
-      setNotification({
-        message: "กรุณากรอกวันที่ชำระ หากสถานะเป็น 'ชำระแล้ว'",
-        type: "error",
-      });
+    
+    // Validate form before submitting
+    if (!validatePaymentForm()) {
       return;
     }
 
@@ -753,11 +767,10 @@ export default function RentPage() {
         >
           <form onSubmit={handleSavePayment} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                ผู้เช่า *
+              <label className={`block text-sm font-medium mb-1 ${formErrors.tenant_id ? 'text-red-400' : 'text-gray-300'}`}>
+                ผู้เช่า <span className="text-red-500">*</span>
               </label>
               <select
-                required
                 value={formData.tenant_id}
                 onChange={(e) => {
                   const selectedTenant = tenants.find(
@@ -766,15 +779,16 @@ export default function RentPage() {
                   setFormData({
                     ...formData,
                     tenant_id: e.target.value,
-                    amount: selectedTenant?.monthly_rent.toString() || "", // Auto-fill amount
+                    amount: selectedTenant?.monthly_rent.toString() || "",
                   });
+                  if (formErrors.tenant_id) setFormErrors({ ...formErrors, tenant_id: undefined });
                 }}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                disabled={!!selectedPayment} // Disable tenant selection when editing\
+                className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.tenant_id ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
+                disabled={!!selectedPayment}
               >
                 <option value="">เลือกผู้เช่า</option>
-                {tenants // ใช้ tenants จาก useTenantsDB
-                  .filter((t) => t.is_active || t.id === formData.tenant_id) // Include current tenant if inactive
+                {tenants
+                  .filter((t) => t.is_active || t.id === formData.tenant_id)
                   .map((tenant) => {
                     const condo = condos.find((c) => c.id === tenant.condo_id);
                     return (
@@ -785,12 +799,15 @@ export default function RentPage() {
                     );
                   })}
               </select>
+              {formErrors.tenant_id && (
+                <p className="text-red-400 text-sm mt-1">{formErrors.tenant_id}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  จำนวนเงิน (บาท) *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.amount ? 'text-red-400' : 'text-gray-300'}`}>
+                  จำนวนเงิน (บาท) <span className="text-red-500">*</span>
                 </label>
                 <NumericFormat
                   thousandSeparator=","
@@ -800,24 +817,31 @@ export default function RentPage() {
                   value={formData.amount}
                   onValueChange={(values) => {
                     setFormData({ ...formData, amount: values.value });
+                    if (formErrors.amount) setFormErrors({ ...formErrors, amount: undefined });
                   }}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.amount ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                   placeholder="0.00"
                 />
+                {formErrors.amount && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.amount}</p>
+                )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  วันครบกำหนด *
+                <label className={`block text-sm font-medium mb-1 ${formErrors.due_date ? 'text-red-400' : 'text-gray-300'}`}>
+                  วันครบกำหนด <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="date"
-                  required
                   value={formData.due_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, due_date: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, due_date: e.target.value });
+                    if (formErrors.due_date) setFormErrors({ ...formErrors, due_date: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.due_date ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 />
+                {formErrors.due_date && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.due_date}</p>
+                )}
               </div>
             </div>
 
@@ -843,18 +867,21 @@ export default function RentPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  วันที่ชำระ {formData.status === "paid" && "*"}
+                <label className={`block text-sm font-medium mb-1 ${formErrors.paid_date ? 'text-red-400' : 'text-gray-300'}`}>
+                  วันที่ชำระ {formData.status === "paid" && <span className="text-red-500">*</span>}
                 </label>
                 <input
                   type="date"
                   value={formData.paid_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, paid_date: e.target.value })
-                  }
-                  required={formData.status === "paid"}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={(e) => {
+                    setFormData({ ...formData, paid_date: e.target.value });
+                    if (formErrors.paid_date) setFormErrors({ ...formErrors, paid_date: undefined });
+                  }}
+                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.paid_date ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 />
+                {formErrors.paid_date && (
+                  <p className="text-red-400 text-sm mt-1">{formErrors.paid_date}</p>
+                )}
               </div>
             </div>
 

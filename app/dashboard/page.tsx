@@ -4,14 +4,14 @@ import { MainLayout } from "@/components/layout/main-layout"
 import { StatsCard } from "@/components/ui/stats-card"
 import { DataTable } from "@/components/ui/data-table"
 import { useAuth } from "@/lib/auth-context"
-import { useCondosDB, useTenantsDB, useRentPaymentsDB, useFinancialRecordsDB } from "@/lib/hooks/use-database"
+import { useCondos, useTenants, useRentPayments, useFinancialRecords } from "@/lib/hooks/use-queries"
 
 export default function DashboardPage() {
   const { user } = useAuth()
-  const { condos, loading } = useCondosDB(user?.id)
-  const { tenants } = useTenantsDB(user?.id) // Ensure tenants are filtered by user
-  const { payments } = useRentPaymentsDB(user?.id) // Ensure payments are filtered by user
-  const { incomeRecords, expenseRecords } = useFinancialRecordsDB(user?.id) // Ensure financial records are filtered by user
+  const { condos, loading } = useCondos(user?.id)
+  const { tenants } = useTenants(user?.id)
+  const { payments } = useRentPayments(user?.id)
+  const { incomeRecords, expenseRecords } = useFinancialRecords(user?.id)
 
   // Calculate stats
   const totalCondos = condos.length

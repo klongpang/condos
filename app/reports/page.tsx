@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react"
 import { MainLayout } from "@/components/layout/main-layout"
 import { useAuth } from "@/lib/auth-context"
-import { useFinancialRecordsDB, useRentPaymentsDB, useCondosDB } from "@/lib/hooks/use-database"
+import { useCondos, useRentPayments, useFinancialRecords } from "@/lib/hooks/use-queries"
 import {
   BarChart,
   Bar,
@@ -24,9 +24,9 @@ import { StatsCard } from "@/components/ui/stats-card" // Import StatsCard
 
 export default function ReportsPage() {
   const { user } = useAuth()
-  const { incomeRecords, expenseRecords, loading: financialsLoading } = useFinancialRecordsDB(user?.id)
-  const { payments, loading: paymentsLoading } = useRentPaymentsDB(user?.id)
-  const { condos, loading: condosLoading } = useCondosDB(user?.id)
+  const { incomeRecords, expenseRecords, loading: financialsLoading } = useFinancialRecords(user?.id)
+  const { payments, loading: paymentsLoading } = useRentPayments(user?.id)
+  const { condos, loading: condosLoading } = useCondos(user?.id)
 
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString())
   const [selectedMonth, setSelectedMonth] = useState<string>("all") // New state for month filter
