@@ -13,6 +13,7 @@ import {
   Upload,
   File,
   X,
+  AlertCircle,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
@@ -20,6 +21,7 @@ import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { Notification } from "@/components/ui/notification";
 import { Modal } from "@/components/ui/modal";
 import { DocumentPreview } from "@/components/ui/document-preview";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useAuth } from "@/lib/auth-context";
 import type { Tenant } from "@/lib/supabase";
 import { useCondos, useTenants } from "@/lib/hooks/use-queries";
@@ -639,7 +641,7 @@ export default function TenantsPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${formErrors.full_name ? 'text-red-400' : 'text-gray-300'}`}>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   ชื่อ-นามสกุล <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -652,11 +654,14 @@ export default function TenantsPage() {
                   className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.full_name ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 />
                 {formErrors.full_name && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.full_name}</p>
+                  <div className="flex items-center mt-1 text-red-400 text-xs">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    {formErrors.full_name}
+                  </div>
                 )}
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-1 ${formErrors.condo_id ? 'text-red-400' : 'text-gray-300'}`}>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   คอนโด <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -675,7 +680,10 @@ export default function TenantsPage() {
                   ))}
                 </select>
                 {formErrors.condo_id && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.condo_id}</p>
+                  <div className="flex items-center mt-1 text-red-400 text-xs">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    {formErrors.condo_id}
+                  </div>
                 )}
               </div>
             </div>
@@ -711,38 +719,36 @@ export default function TenantsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${formErrors.rental_start ? 'text-red-400' : 'text-gray-300'}`}>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   วันที่เริ่มเช่า <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="date"
-                  value={formData.rental_start}
-                  onChange={(e) => {
-                    setFormData({ ...formData, rental_start: e.target.value });
+                <DatePicker
+                  id="rental_start"
+                  value={formData.rental_start ? new Date(formData.rental_start) : undefined}
+                  onChange={(date) => {
+                    const formattedDate = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '';
+                    setFormData({ ...formData, rental_start: formattedDate });
                     if (formErrors.rental_start) setFormErrors({ ...formErrors, rental_start: undefined });
                   }}
-                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.rental_start ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
+                  error={formErrors.rental_start}
+                  required
                 />
-                {formErrors.rental_start && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.rental_start}</p>
-                )}
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-1 ${formErrors.rental_end ? 'text-red-400' : 'text-gray-300'}`}>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   วันที่สิ้นสุดสัญญา <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="date"
-                  value={formData.rental_end}
-                  onChange={(e) => {
-                    setFormData({ ...formData, rental_end: e.target.value });
+                <DatePicker
+                  id="rental_end"
+                  value={formData.rental_end ? new Date(formData.rental_end) : undefined}
+                  onChange={(date) => {
+                    const formattedDate = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '';
+                    setFormData({ ...formData, rental_end: formattedDate });
                     if (formErrors.rental_end) setFormErrors({ ...formErrors, rental_end: undefined });
                   }}
-                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.rental_end ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
+                  error={formErrors.rental_end}
+                  required
                 />
-                {formErrors.rental_end && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.rental_end}</p>
-                )}
               </div>
             </div>
 
@@ -762,7 +768,7 @@ export default function TenantsPage() {
                 />
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-1 ${formErrors.monthly_rent ? 'text-red-400' : 'text-gray-300'}`}>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   ค่าเช่าต่อเดือน (บาท) <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -776,7 +782,10 @@ export default function TenantsPage() {
                   className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.monthly_rent ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
                 />
                 {formErrors.monthly_rent && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.monthly_rent}</p>
+                  <div className="flex items-center mt-1 text-red-400 text-xs">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    {formErrors.monthly_rent}
+                  </div>
                 )}
               </div>
             </div>
@@ -845,17 +854,17 @@ export default function TenantsPage() {
               <label className="block text-sm font-medium text-gray-300 mb-1">
                 วันที่ย้ายออกจริง *
               </label>
-              <input
-                type="date"
-                required
-                value={endContractData.actual_end_date}
-                onChange={(e) =>
+              <DatePicker
+                id="actual_end_date"
+                value={endContractData.actual_end_date ? new Date(endContractData.actual_end_date) : undefined}
+                onChange={(date) => {
+                  const formattedDate = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '';
                   setEndContractData({
                     ...endContractData,
-                    actual_end_date: e.target.value,
+                    actual_end_date: formattedDate,
                   })
-                }
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                }}
+                required
               />
             </div>
 

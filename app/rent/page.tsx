@@ -15,6 +15,7 @@ import {
   Edit,
   Eye,
   Trash,
+  AlertCircle,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
@@ -23,6 +24,7 @@ import { Notification } from "@/components/ui/notification"; // Import Notificat
 // Import ConfirmationModal
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { DocumentPreview } from "@/components/ui/document-preview"; // Import DocumentPreview
+import { DatePicker } from "@/components/ui/date-picker";
 import { useCondos, useTenants, useRentPayments } from "@/lib/hooks/use-queries";
 import { useDocumentsDB } from "@/lib/hooks/use-database"; // Import useDocumentsDB
 import { useAuth } from "@/lib/auth-context";
@@ -800,13 +802,16 @@ export default function RentPage() {
                   })}
               </select>
               {formErrors.tenant_id && (
-                <p className="text-red-400 text-sm mt-1">{formErrors.tenant_id}</p>
+                <div className="flex items-center mt-1 text-red-400 text-xs">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  {formErrors.tenant_id}
+                </div>
               )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${formErrors.amount ? 'text-red-400' : 'text-gray-300'}`}>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   จำนวนเงิน (บาท) <span className="text-red-500">*</span>
                 </label>
                 <NumericFormat
@@ -823,25 +828,27 @@ export default function RentPage() {
                   placeholder="0.00"
                 />
                 {formErrors.amount && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.amount}</p>
+                  <div className="flex items-center mt-1 text-red-400 text-xs">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    {formErrors.amount}
+                  </div>
                 )}
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-1 ${formErrors.due_date ? 'text-red-400' : 'text-gray-300'}`}>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   วันครบกำหนด <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="date"
-                  value={formData.due_date}
-                  onChange={(e) => {
-                    setFormData({ ...formData, due_date: e.target.value });
+                <DatePicker
+                  id="due_date"
+                  value={formData.due_date ? new Date(formData.due_date) : undefined}
+                  onChange={(date) => {
+                    const formattedDate = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '';
+                    setFormData({ ...formData, due_date: formattedDate });
                     if (formErrors.due_date) setFormErrors({ ...formErrors, due_date: undefined });
                   }}
-                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.due_date ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
+                  error={formErrors.due_date}
+                  required
                 />
-                {formErrors.due_date && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.due_date}</p>
-                )}
               </div>
             </div>
 
@@ -867,21 +874,20 @@ export default function RentPage() {
                 </select>
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-1 ${formErrors.paid_date ? 'text-red-400' : 'text-gray-300'}`}>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   วันที่ชำระ {formData.status === "paid" && <span className="text-red-500">*</span>}
                 </label>
-                <input
-                  type="date"
-                  value={formData.paid_date}
-                  onChange={(e) => {
-                    setFormData({ ...formData, paid_date: e.target.value });
+                <DatePicker
+                  id="paid_date"
+                  value={formData.paid_date ? new Date(formData.paid_date) : undefined}
+                  onChange={(date) => {
+                    const formattedDate = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '';
+                    setFormData({ ...formData, paid_date: formattedDate });
                     if (formErrors.paid_date) setFormErrors({ ...formErrors, paid_date: undefined });
                   }}
-                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.paid_date ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
+                  error={formErrors.paid_date}
+                  // Not strictly required unless status is paid, validation handles it
                 />
-                {formErrors.paid_date && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.paid_date}</p>
-                )}
               </div>
             </div>
 

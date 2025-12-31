@@ -14,6 +14,7 @@ import {
   Eye,
   Upload,
   File,
+  AlertCircle,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
@@ -22,6 +23,7 @@ import { StatsCard } from "@/components/ui/stats-card";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"; // Import ConfirmationModal
 import { DocumentPreview } from "@/components/ui/document-preview"; // Import DocumentPreview
+import { DatePicker } from "@/components/ui/date-picker";
 import { useCondos, useTenants, useFinancialRecords } from "@/lib/hooks/use-queries";
 import { useDocumentsDB } from "@/lib/hooks/use-database";
 import { useAuth } from "@/lib/auth-context";
@@ -819,7 +821,7 @@ export default function FinancialsPage() {
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className={`block text-sm font-medium mb-1 ${formErrors.condo_id ? 'text-red-400' : 'text-gray-300'}`}>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 คอนโด <span className="text-red-500">*</span>
               </label>
               <select
@@ -843,13 +845,16 @@ export default function FinancialsPage() {
                 ))}
               </select>
               {formErrors.condo_id && (
-                <p className="text-red-400 text-sm mt-1">{formErrors.condo_id}</p>
+                <div className="flex items-center mt-1 text-red-400 text-xs">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  {formErrors.condo_id}
+                </div>
               )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${formErrors.type ? 'text-red-400' : 'text-gray-300'}`}>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   หัวข้อ <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -867,11 +872,14 @@ export default function FinancialsPage() {
                   }
                 />
                 {formErrors.type && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.type}</p>
+                  <div className="flex items-center mt-1 text-red-400 text-xs">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    {formErrors.type}
+                  </div>
                 )}
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-1 ${formErrors.category ? 'text-red-400' : 'text-gray-300'}`}>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   หมวดหมู่ <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -893,14 +901,17 @@ export default function FinancialsPage() {
                   ))}
                 </select>
                 {formErrors.category && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.category}</p>
+                  <div className="flex items-center mt-1 text-red-400 text-xs">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    {formErrors.category}
+                  </div>
                 )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={`block text-sm font-medium mb-1 ${formErrors.amount ? 'text-red-400' : 'text-gray-300'}`}>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   จำนวนเงิน (บาท) <span className="text-red-500">*</span>
                 </label>
                 <NumericFormat
@@ -916,25 +927,27 @@ export default function FinancialsPage() {
                   placeholder="0.00"
                 />
                 {formErrors.amount && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.amount}</p>
+                  <div className="flex items-center mt-1 text-red-400 text-xs">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    {formErrors.amount}
+                  </div>
                 )}
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-1 ${formErrors.date ? 'text-red-400' : 'text-gray-300'}`}>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   วันที่ <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => {
-                    setFormData({ ...formData, date: e.target.value });
+                <DatePicker
+                  id="date"
+                  value={formData.date ? new Date(formData.date) : undefined}
+                  onChange={(date) => {
+                    const formattedDate = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '';
+                    setFormData({ ...formData, date: formattedDate });
                     if (formErrors.date) setFormErrors({ ...formErrors, date: undefined });
                   }}
-                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.date ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
+                  error={formErrors.date}
+                  required
                 />
-                {formErrors.date && (
-                  <p className="text-red-400 text-sm mt-1">{formErrors.date}</p>
-                )}
               </div>
             </div>
 
