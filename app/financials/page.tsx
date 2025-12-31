@@ -673,17 +673,10 @@ export default function FinancialsPage() {
           <div className="flex space-x-3">
             <button
               onClick={() => openModal("income")}
-              className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-lg shadow-green-900/20"
             >
               <Plus className="h-4 w-4 mr-2" />
-              เพิ่มรายรับ
-            </button>
-            <button
-              onClick={() => openModal("expense")}
-              className="flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              เพิ่มรายจ่าย
+              เพิ่มรายการ
             </button>
           </div>
         </div>
@@ -815,11 +808,51 @@ export default function FinancialsPage() {
           title={
             editingRecord
               ? `แก้ไข${recordType === "income" ? "รายรับ" : "รายจ่าย"}`
-              : `เพิ่ม${recordType === "income" ? "รายรับ" : "รายจ่าย"}`
+              : "บันทึกรายการ"
           }
           size="md"
         >
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {!editingRecord && (
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecordType("income");
+                    // Reset category when switching type to avoid invalid selection
+                    setFormData(prev => ({ ...prev, category: "" }));
+                  }}
+                  className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all duration-200 ${
+                    recordType === "income"
+                      ? "border-green-500 bg-green-500/10 text-green-400 shadow-md shadow-green-900/10"
+                      : "border-gray-700 bg-gray-800/50 text-gray-500 hover:border-gray-600 hover:bg-gray-800"
+                  }`}
+                >
+                  <div className={`p-2 rounded-full mb-2 ${recordType === "income" ? "bg-green-500/20" : "bg-gray-700"}`}>
+                    <TrendingUp className="h-5 w-5" />
+                  </div>
+                  <span className="font-medium text-base">รายรับ</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecordType("expense");
+                    // Reset category when switching type to avoid invalid selection
+                    setFormData(prev => ({ ...prev, category: "" }));
+                  }}
+                  className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all duration-200 ${
+                    recordType === "expense"
+                      ? "border-red-500 bg-red-500/10 text-red-400 shadow-md shadow-red-900/10"
+                      : "border-gray-700 bg-gray-800/50 text-gray-500 hover:border-gray-600 hover:bg-gray-800"
+                  }`}
+                >
+                  <div className={`p-2 rounded-full mb-2 ${recordType === "expense" ? "bg-red-500/20" : "bg-gray-700"}`}>
+                    <TrendingDown className="h-5 w-5" />
+                  </div>
+                  <span className="font-medium text-base">รายจ่าย</span>
+                </button>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
                 คอนโด <span className="text-red-500">*</span>
@@ -976,11 +1009,7 @@ export default function FinancialsPage() {
               </button>
               <button
                 type="submit"
-                className={`px-4 py-2 text-white rounded-lg transition-colors ${
-                  recordType === "income"
-                    ? "bg-green-600 hover:bg-green-700"
-                    : "bg-red-600 hover:bg-red-700"
-                }`}
+                className="px-4 py-2 text-white rounded-lg transition-colors bg-green-600 hover:bg-green-700"
               >
                 {editingRecord ? "บันทึก" : "บันทึก"}
               </button>
