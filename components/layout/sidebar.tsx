@@ -173,12 +173,17 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
 
       {/* User section */}
       <div className="border-t border-gray-800 p-4">
-        {/* User Info */}
-        <div className={cn(
-          "flex items-center mb-4 transition-all duration-300",
-          isCollapsed && "justify-center"
-        )}>
-          <div className="relative group">
+        {/* User Info - Clickable to open profile */}
+        <button
+          onClick={onOpenProfileModal}
+          className={cn(
+            "flex items-center mb-4 transition-all duration-300 w-full rounded-xl p-2 -m-2",
+            "hover:bg-gray-800 group cursor-pointer",
+            isCollapsed && "justify-center"
+          )}
+          title="ตั้งค่าโปรไฟล์"
+        >
+          <div className="relative">
             <div className="h-10 w-10 rounded-full bg-gradient-to-r from-green-600 to-green-700 flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-green-500/30 transition-all duration-300 group-hover:ring-green-500/60 group-hover:scale-105">
               {user?.profile_picture_url ? (
                 <img
@@ -196,7 +201,7 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
           
           {/* User details - ซ่อนเมื่อย่อ */}
           <div className={cn(
-            "ml-3 overflow-hidden transition-all duration-300",
+            "ml-3 flex-1 overflow-hidden transition-all duration-300 text-left",
             isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
           )}>
             <p className="text-sm font-medium text-white whitespace-nowrap truncate">
@@ -206,28 +211,17 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
               {user?.email}
             </p>
           </div>
-        </div>
 
-        {/* Settings and Logout Buttons */}
+          {/* Settings Icon - แสดงเมื่อไม่ย่อ */}
+          {!isCollapsed && (
+            <div className="ml-2 p-2 rounded-lg text-gray-400 group-hover:text-white transition-all duration-300">
+              <Settings className="h-5 w-5 transition-transform duration-300 group-hover:rotate-90" />
+            </div>
+          )}
+        </button>
+
+        {/* Logout Button */}
         <div className="space-y-2">
-          <button
-            onClick={onOpenProfileModal}
-            className={cn(
-              "flex items-center w-full px-3 py-3 text-sm rounded-xl transition-all duration-300 group relative overflow-hidden",
-              "text-gray-300 hover:bg-gray-800 hover:text-white hover:shadow-md",
-              isCollapsed && "justify-center"
-            )}
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
-            <Settings className={cn(
-              "h-4 w-4 flex-shrink-0 relative z-10 transition-transform duration-300 group-hover:rotate-90",
-              !isCollapsed && "mr-3"
-            )} />
-            {!isCollapsed && (
-              <span className="whitespace-nowrap relative z-10">ตั้งค่าโปรไฟล์</span>
-            )}
-          </button>
-          
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}

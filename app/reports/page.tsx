@@ -159,9 +159,11 @@ export default function ReportsPage() {
     return Array.from(categoryMap.entries()).map(([name, value]) => ({ name, value }))
   }, [filteredFinancialRecords.expense])
 
-  // Available Years for filter
+  // Available Years for filter - always include current year
   const availableYears = useMemo(() => {
     const years = new Set<number>()
+    // Always add current year so it's selectable even if no data exists
+    years.add(new Date().getFullYear())
     incomeRecords.forEach((r) => years.add(new Date(r.date).getFullYear()))
     expenseRecords.forEach((r) => years.add(new Date(r.date).getFullYear()))
     payments.forEach((p) => years.add(new Date(p.due_date).getFullYear()))
