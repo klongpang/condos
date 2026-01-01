@@ -12,18 +12,26 @@ import type {
 } from "./supabase";
 import archiver from "archiver";
 import { Readable, PassThrough } from "stream";
+import nodemailer from "nodemailer";
+
+// Email configuration
+const EMAIL_CONFIG = {
+  user: process.env.BACKUP_EMAIL_USER,
+  pass: process.env.BACKUP_EMAIL_PASS,
+  to: process.env.BACKUP_EMAIL_TO,
+};
 
 // Storage buckets to backup
 const STORAGE_BUCKETS = ["documents", "receipts", "profiles"];
 
-// Tables to export
+// Tables to export (only existing tables)
 const TABLES = [
   "users",
   "condos",
   "tenants",
   "rent_payments",
-  "income",
-  "expense",
+  "income_records",
+  "expense_records",
   "tenant_history",
   "documents",
   "notifications",
@@ -307,24 +315,49 @@ export async function createAndUploadBackup(
       archive.append(tableJson, { name: `database/${table}.json` });
     }
 
-    // Add storage files
+    // Add storage files (parallel download - 5 at a time)
     let fileCount = 0;
+    let skippedCount = 0;
+    const BATCH_SIZE = 5;
+    
     if (storageFiles.length > 0) {
-      console.log(`[Backup] Downloading ${storageFiles.length} storage files...`);
-      for (let i = 0; i < storageFiles.length; i++) {
-        const file = storageFiles[i];
-        if ((i + 1) % 10 === 0 || i === 0) {
-          console.log(`[Backup] - Progress: ${i + 1}/${storageFiles.length}`);
-        }
-        const blob = await downloadStorageFile(file.bucket, file.path);
-        if (blob) {
-          const arrayBuffer = await blob.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          archive.append(buffer, { name: `storage/${file.bucket}/${file.path}` });
-          fileCount++;
+      console.log(`[Backup] Downloading ${storageFiles.length} storage files (${BATCH_SIZE} parallel)...`);
+      
+      // Process in batches
+      for (let i = 0; i < storageFiles.length; i += BATCH_SIZE) {
+        const batch = storageFiles.slice(i, i + BATCH_SIZE);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(storageFiles.length / BATCH_SIZE);
+        
+        console.log(`[Backup] - Batch ${batchNum}/${totalBatches} (files ${i + 1}-${Math.min(i + BATCH_SIZE, storageFiles.length)})`);
+        
+        // Download batch in parallel
+        const results = await Promise.all(
+          batch.map(async (file) => {
+            const blob = await downloadStorageFile(file.bucket, file.path);
+            if (blob) {
+              const arrayBuffer = await blob.arrayBuffer();
+              return {
+                buffer: Buffer.from(arrayBuffer),
+                path: `storage/${file.bucket}/${file.path}`,
+              };
+            }
+            return null;
+          })
+        );
+        
+        // Add successful downloads to archive
+        for (const result of results) {
+          if (result) {
+            archive.append(result.buffer, { name: result.path });
+            fileCount++;
+          } else {
+            skippedCount++;
+          }
         }
       }
-      console.log(`[Backup] Downloaded ${fileCount} files`);
+      
+      console.log(`[Backup] Downloaded ${fileCount} files, skipped ${skippedCount} failed`);
     }
 
     // Finalize the archive
@@ -437,5 +470,79 @@ export async function cleanupOldBackups(keepCount: number = 7): Promise<number> 
     return filesToDelete.length;
   } catch {
     return 0;
+  }
+}
+
+/**
+ * Send backup file via email
+ */
+export interface EmailResult {
+  success: boolean;
+  error?: string;
+}
+
+export async function sendBackupEmail(
+  backupBuffer: Buffer,
+  filename: string,
+  stats: { tables: number; totalRecords: number; files: number; sizeBytes: number }
+): Promise<EmailResult> {
+  const { user, pass, to } = EMAIL_CONFIG;
+
+  if (!user || !pass || !to) {
+    return {
+      success: false,
+      error: "Email not configured. Set BACKUP_EMAIL_USER, BACKUP_EMAIL_PASS, and BACKUP_EMAIL_TO",
+    };
+  }
+
+  try {
+    console.log("[Backup] Sending backup via email...");
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user,
+        pass,
+      },
+    });
+
+    const sizeMB = (stats.sizeBytes / 1024 / 1024).toFixed(2);
+    const now = new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
+
+    await transporter.sendMail({
+      from: user,
+      to,
+      subject: `🗄️ Database Backup - ${now}`,
+      html: `
+        <h2>Backup Completed Successfully</h2>
+        <p><strong>Date:</strong> ${now}</p>
+        <p><strong>File:</strong> ${filename}</p>
+        <p><strong>Size:</strong> ${sizeMB} MB</p>
+        <hr>
+        <h3>Statistics</h3>
+        <ul>
+          <li>Tables: ${stats.tables}</li>
+          <li>Total Records: ${stats.totalRecords}</li>
+          <li>Storage Files: ${stats.files}</li>
+        </ul>
+        <hr>
+        <p><em>This is an automated backup from your Condos Management System.</em></p>
+      `,
+      attachments: [
+        {
+          filename,
+          content: backupBuffer,
+        },
+      ],
+    });
+
+    console.log(`[Backup] ✅ Email sent to ${to}`);
+    return { success: true };
+  } catch (err) {
+    console.error("[Backup] Email failed:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to send email",
+    };
   }
 }
