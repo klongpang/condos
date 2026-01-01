@@ -24,7 +24,8 @@ import { DocumentPreview } from "@/components/ui/document-preview";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useAuth } from "@/lib/auth-context";
 import type { Tenant } from "@/lib/supabase";
-import { useCondos, useTenants } from "@/lib/hooks/use-queries";
+import { useCondos, useTenants, queryKeys } from "@/lib/hooks/use-queries";
+import { useQueryClient } from "@tanstack/react-query";
 import { useDocumentsDB } from "@/lib/hooks/use-database";
 import { tenantHistoryService } from "@/lib/database";
 import {
@@ -40,6 +41,7 @@ import {
 
 export default function TenantsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { tenants, loading, refetch: refetchTenants } = useTenants(user?.id);
   const { condos } = useCondos(user?.id);
   const [isEndContractModalOpen, setIsEndContractModalOpen] = useState(false);
@@ -267,6 +269,8 @@ export default function TenantsPage() {
       }
       
       refetchTenants(); // Refresh data
+      // Invalidate tenant history cache to ensure immediate update on the history page
+      queryClient.invalidateQueries({ queryKey: queryKeys.tenantHistory(user?.id) });
 
       // รีเซ็ตฟอร์ม
       setIsEndContractModalOpen(false);
@@ -440,14 +444,14 @@ export default function TenantsPage() {
             let endClass = "text-gray-400"; // สีเทา (ค่าเริ่มต้น)
 
             if (daysRemaining <= DAYS_RED_THRESHOLD && daysRemaining > 0) {
-                // ใกล้ 2 เดือน (60 วัน) หรือน้อยกว่า: สีแดง (ต้องมากกว่า 0 เพื่อไม่ให้วันที่เลยกำหนดมีสีแดงนี้)
-                endClass = "text-red-500 font-bold";
+                // ใกล้ 2 เดือน (60 วัน) หรือน้อยกว่า: สีส้ม (ใช้ text-orange-300 เพื่อให้ตรงกับ Badge)
+                endClass = "text-orange-300 font-bold";
             } else if (daysRemaining <= DAYS_YELLOW_THRESHOLD && daysRemaining > 0) {
-                // ใกล้ 4 เดือน (120 วัน) หรือน้อยกว่า: สีเหลือง
-                endClass = "text-yellow-500";
+                // ใกล้ 4 เดือน (120 วัน) หรือน้อยกว่า: สีเหลือง (ใช้ text-yellow-300 เพื่อให้ตรงกับ Badge)
+                endClass = "text-yellow-300";
             } else if (daysRemaining <= 0) {
-                // วันที่เลยกำหนดไปแล้ว (daysRemaining เป็น 0 หรือติดลบ)
-                endClass = "text-red-700 font-bold italic"; // อาจใช้สีแดงเข้มเพื่อระบุว่าหมดอายุแล้ว
+                // วันที่เลยกำหนดไปแล้ว
+                endClass = "text-red-600 font-bold italic"; // ใช้ text-red-300 เพื่อให้ตรงกับ Badge
             }
             
             // 5. แสดงผลลัพธ์
@@ -472,36 +476,36 @@ export default function TenantsPage() {
             const endDate = new Date(tenant.rental_end);
             const today = new Date();
 
-            // 1. กำหนดเกณฑ์วันที่ (เป็นมิลลิวินาที)
+            // 1. คำนวณวันคงเหลือ
             const MS_PER_DAY = 24 * 60 * 60 * 1000;
+            const timeDiff = endDate.getTime() - today.getTime();
+            const daysRemaining = Math.ceil(timeDiff / MS_PER_DAY);
             
-            // กำหนดเส้นตายสำหรับ 'วิกฤต' (2 เดือน ≈ 60 วัน)
+            // 2. กำหนดเกณฑ์วันที่ (เป็นมิลลิวินาที)
             const deadlineRed = new Date(today.getTime() + 60 * MS_PER_DAY);
-            
-            // กำหนดเส้นตายสำหรับ 'ใกล้หมดอายุ' (4 เดือน ≈ 120 วัน)
             const deadlineYellow = new Date(today.getTime() + 90 * MS_PER_DAY);
 
-            // 2. ตรวจสอบเงื่อนไขตามลำดับ (วิกฤต/แดง, ใกล้หมดอายุ/เหลือง)
-            const isVeryNearExpiring = endDate <= deadlineRed;   // 2 เดือนหรือน้อยกว่า
-            const isExpiring = endDate <= deadlineYellow;       // 4 เดือนหรือน้อยกว่า
+            // 3. ตรวจสอบเงื่อนไข
+            const isVeryNearExpiring = endDate <= deadlineRed;
+            const isExpiring = endDate <= deadlineYellow;
+            const isExpired = daysRemaining < 0;
 
             let statusText: string;
             let classNames: string;
 
             if (!tenant.is_active) {
-                // สถานะ 1: ไม่ใช้งาน (Inactive) - RED
                 statusText = "ไม่ใช้งาน";
                 classNames = "bg-red-900 text-red-300";
+            } else if (isExpired) {
+                statusText = "หมดสัญญา";
+                classNames = "bg-red-900 text-red-600";
             } else if (isVeryNearExpiring) {
-                // สถานะ 2: วิกฤต (<= 2 เดือน) - RED
                 statusText = "จะหมดสัญญา"; 
-                classNames = "bg-red-900 text-red-300"; 
+                classNames = "bg-orange-900 text-orange-300"; 
             } else if (isExpiring) {
-                // สถานะ 3: ใกล้หมดอายุ (<= 4 เดือน แต่ > 2 เดือน) - YELLOW
                 statusText = "ใกล้หมดสัญญา";
                 classNames = "bg-yellow-900 text-yellow-300";
             } else {
-                // สถานะ 4: ใช้งาน (เหลือ > 4 เดือน) - GREEN
                 statusText = "ใช้งาน";
                 classNames = "bg-green-900 text-green-300";
             }
@@ -664,21 +668,28 @@ export default function TenantsPage() {
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   คอนโด <span className="text-red-500">*</span>
                 </label>
-                <select
-                  value={formData.condo_id}
-                  onChange={(e) => {
-                    setFormData({ ...formData, condo_id: e.target.value });
-                    if (formErrors.condo_id) setFormErrors({ ...formErrors, condo_id: undefined });
-                  }}
-                  className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.condo_id ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
-                >
-                  <option value="">เลือกคอนโด</option>
-                  {condos.map((condo) => (
-                    <option key={condo.id} value={condo.id}>
-                      {condo.name} ({condo.room_number})
-                    </option>
-                  ))}
-                </select>
+                  <select
+                    value={formData.condo_id}
+                    onChange={(e) => {
+                      setFormData({ ...formData, condo_id: e.target.value });
+                      if (formErrors.condo_id) setFormErrors({ ...formErrors, condo_id: undefined });
+                    }}
+                    className={`w-full px-3 py-2 bg-gray-700 border rounded-md text-white focus:outline-none focus:ring-2 ${formErrors.condo_id ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-green-500'}`}
+                  >
+                    <option value="">เลือกคอนโด</option>
+                    {condos.map((condo) => {
+                      // Check if condo is occupied
+                      const isOccupied = tenants.some(
+                        (t) => t.is_active && t.condo_id === condo.id && t.id !== editingTenant?.id
+                      );
+                      
+                      return (
+                        <option key={condo.id} value={condo.id} disabled={isOccupied}>
+                          {condo.name} ({condo.room_number}) {isOccupied ? "(ไม่ว่าง)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
                 {formErrors.condo_id && (
                   <div className="flex items-center mt-1 text-red-400 text-xs">
                     <AlertCircle className="w-3 h-3 mr-1" />
@@ -726,8 +737,22 @@ export default function TenantsPage() {
                   id="rental_start"
                   value={formData.rental_start ? new Date(formData.rental_start) : undefined}
                   onChange={(date) => {
-                    const formattedDate = date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '';
-                    setFormData({ ...formData, rental_start: formattedDate });
+                    if (date) {
+                      const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                      
+                      // Calculate +1 Year
+                      const endDate = new Date(date);
+                      endDate.setFullYear(date.getFullYear() + 1);
+                      const formattedEndDate = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+
+                      setFormData({ 
+                        ...formData, 
+                        rental_start: formattedDate,
+                        rental_end: formattedEndDate 
+                      });
+                    } else {
+                       setFormData({ ...formData, rental_start: '' });
+                    }
                     if (formErrors.rental_start) setFormErrors({ ...formErrors, rental_start: undefined });
                   }}
                   error={formErrors.rental_start}
@@ -899,7 +924,7 @@ export default function TenantsPage() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
               >
                 บันทึก
               </button>

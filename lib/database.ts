@@ -186,6 +186,22 @@ export const tenantService = {
 
     return !error
   },
+
+  async getArchivedTenant(condoId: string, fullName: string): Promise<Tenant | null> {
+    const { data, error } = await supabase
+      .from("tenants")
+      .select(`
+        *,
+        condo:condos(*)
+      `)
+      .eq("condo_id", condoId)
+      .eq("full_name", fullName)
+      .eq("is_active", false)
+      .limit(1)
+      .single()
+
+    return error ? null : data
+  },
 }
 
 // Rent Payment functions
