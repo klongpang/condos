@@ -10,7 +10,7 @@ const protectedPaths = [
   // เพิ่ม paths ที่ต้องการป้องกัน
 ]
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path))
   
