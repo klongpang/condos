@@ -155,14 +155,14 @@ export default function TenantHistoryPage() {
           <div className="text-gray-400">
             ถึง {new Date(history.rental_end).toLocaleDateString("th-TH")}
           </div>
-          {history.actual_end_date && (
-            <div className="text-yellow-400 text-xs">
-              จริง:{" "}
-              {new Date(history.actual_end_date).toLocaleDateString("th-TH")}
-            </div>
-          )}
         </div>
       ),
+    },
+    {
+      key: "moved_out_at",
+      header: "วันที่ย้ายออก",
+      render: (history: TenantHistory) =>
+        new Date(history.moved_out_at).toLocaleDateString("th-TH"),
     },
     {
       key: "monthly_rent",
@@ -182,12 +182,6 @@ export default function TenantHistoryPage() {
           {getEndReasonText(history.end_reason)}
         </span>
       ),
-    },
-    {
-      key: "moved_out_at",
-      header: "วันที่ย้ายออก",
-      render: (history: TenantHistory) =>
-        new Date(history.moved_out_at).toLocaleDateString("th-TH"),
     },
     {
       key: "actions",
@@ -381,7 +375,7 @@ export default function TenantHistoryPage() {
                 {/* Tab 2: Documents */}
                 <TabsContent value="documents" className="mt-4">
                   {matchedTenantId ? (
-                    <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                    <div className="bg-gray-800/50 rounded-xl border border-gray-700/50 p-4">
                       <DocumentPreview
                         documents={filteredDocuments}
                         documentTypes={DOCUMENT_TYPES}
@@ -513,7 +507,7 @@ export default function TenantHistoryPage() {
                   }}
                   className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors font-medium"
                 >
-                  ปิดหน้าต่าง
+                  ปิด
                 </button>
               </div>
             </div>

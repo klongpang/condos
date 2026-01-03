@@ -444,8 +444,8 @@ export default function TenantsPage() {
             let endClass = "text-gray-400"; // สีเทา (ค่าเริ่มต้น)
 
             if (daysRemaining <= DAYS_RED_THRESHOLD && daysRemaining > 0) {
-                // ใกล้ 2 เดือน (60 วัน) หรือน้อยกว่า: สีส้ม (ใช้ text-orange-300 เพื่อให้ตรงกับ Badge)
-                endClass = "text-orange-300 font-bold";
+                // ใกล้ 2 เดือน (60 วัน) หรือน้อยกว่า: สีแดงอ่อน
+                endClass = "text-red-400 font-medium";
             } else if (daysRemaining <= DAYS_YELLOW_THRESHOLD && daysRemaining > 0) {
                 // ใกล้ 4 เดือน (120 วัน) หรือน้อยกว่า: สีเหลือง (ใช้ text-yellow-300 เพื่อให้ตรงกับ Badge)
                 endClass = "text-yellow-300";
@@ -501,7 +501,7 @@ export default function TenantsPage() {
                 classNames = "bg-red-900 text-red-600";
             } else if (isVeryNearExpiring) {
                 statusText = "จะหมดสัญญา"; 
-                classNames = "bg-orange-900 text-orange-300"; 
+                classNames = "bg-red-900/60 text-red-400"; 
             } else if (isExpiring) {
                 statusText = "ใกล้หมดสัญญา";
                 classNames = "bg-yellow-900 text-yellow-300";

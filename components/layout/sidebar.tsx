@@ -172,19 +172,19 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
       </nav>
 
       {/* User section */}
-      <div className="border-t border-gray-800 p-4">
+      <div className="border-t border-gray-800 p-3">
         {/* User Info - Clickable to open profile */}
         <button
           onClick={onOpenProfileModal}
           className={cn(
-            "flex items-center mb-4 transition-all duration-300 w-full rounded-xl p-2 -m-2",
+            "flex items-center mb-2 transition-all duration-300 w-full rounded-lg p-2",
             "hover:bg-gray-800 group cursor-pointer",
             isCollapsed && "justify-center"
           )}
           title="ตั้งค่าโปรไฟล์"
         >
           <div className="relative">
-            <div className="h-10 w-10 rounded-full bg-gradient-to-r from-green-600 to-green-700 flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-green-500/30 transition-all duration-300 group-hover:ring-green-500/60 group-hover:scale-105">
+            <div className="h-9 w-9 rounded-full bg-gradient-to-r from-green-600 to-green-700 flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-green-500/30 transition-all duration-300 group-hover:ring-green-500/60">
               {user?.profile_picture_url ? (
                 <img
                   src={user.profile_picture_url || "/placeholder.svg"}
@@ -196,66 +196,60 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
               )}
             </div>
             {/* Online indicator */}
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 border-2 border-gray-900 rounded-full animate-pulse"></div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-gray-900 rounded-full"></div>
           </div>
           
           {/* User details - ซ่อนเมื่อย่อ */}
           <div className={cn(
-            "ml-3 flex-1 overflow-hidden transition-all duration-300 text-left",
+            "ml-2.5 flex-1 min-w-0 overflow-hidden transition-all duration-300 text-left",
             isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
           )}>
-            <p className="text-sm font-medium text-white whitespace-nowrap truncate">
+            <p className="text-sm font-medium text-white whitespace-nowrap truncate leading-tight">
               {user?.full_name}
             </p>
-            <p className="text-xs text-gray-400 whitespace-nowrap truncate">
+            <p className="text-xs text-gray-400 whitespace-nowrap truncate leading-tight">
               {user?.email}
             </p>
           </div>
 
           {/* Settings Icon - แสดงเมื่อไม่ย่อ */}
           {!isCollapsed && (
-            <div className="ml-2 p-2 rounded-lg text-gray-400 group-hover:text-white transition-all duration-300">
-              <Settings className="h-5 w-5 transition-transform duration-300 group-hover:rotate-90" />
+            <div className="ml-1 p-1.5 rounded-lg text-gray-400 group-hover:text-white transition-all duration-300">
+              <Settings className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
             </div>
           )}
         </button>
 
         {/* Logout Button */}
-        <div className="space-y-2">
-          <button
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className={cn(
-              "flex items-center w-full px-3 py-3 text-sm rounded-xl transition-all duration-300 group relative overflow-hidden",
-              isLoggingOut 
-                ? "bg-gray-700 text-gray-400 cursor-not-allowed" 
-                : "text-gray-300 hover:bg-red-900/50 hover:text-white hover:shadow-md hover:shadow-red-900/25",
-              isCollapsed && "justify-center"
-            )}
-          >
-            {!isLoggingOut && (
-              <div className="absolute inset-0 bg-gradient-to-r from-red-600/20 to-pink-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
-            )}
-            
-            {isLoggingOut ? (
-              <Loader2 className={cn(
-                "h-4 w-4 animate-spin flex-shrink-0 relative z-10",
-                !isCollapsed && "mr-3"
-              )} />
-            ) : (
-              <LogOut className={cn(
-                "h-4 w-4 flex-shrink-0 relative z-10 transition-transform duration-300 group-hover:translate-x-1",
-                !isCollapsed && "mr-3"
-              )} />
-            )}
-            
-            {!isCollapsed && (
-              <span className="whitespace-nowrap relative z-10">
-                {isLoggingOut ? "กำลังออกจากระบบ..." : "ออกจากระบบ"}
-              </span>
-            )}
-          </button>
-        </div>
+        <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className={cn(
+            "flex items-center w-full px-3 py-2 text-sm rounded-lg transition-all duration-300 group",
+            isLoggingOut 
+              ? "bg-gray-700 text-gray-400 cursor-not-allowed" 
+              : "text-gray-400 hover:bg-red-900/40 hover:text-red-300",
+            isCollapsed && "justify-center"
+          )}
+        >
+          {isLoggingOut ? (
+            <Loader2 className={cn(
+              "h-4 w-4 animate-spin flex-shrink-0",
+              !isCollapsed && "mr-2"
+            )} />
+          ) : (
+            <LogOut className={cn(
+              "h-4 w-4 flex-shrink-0 transition-transform duration-300 group-hover:-translate-x-0.5",
+              !isCollapsed && "mr-2"
+            )} />
+          )}
+          
+          {!isCollapsed && (
+            <span className="whitespace-nowrap text-xs">
+              {isLoggingOut ? "กำลังออก..." : "ออกจากระบบ"}
+            </span>
+          )}
+        </button>
       </div>
     </div>
   )

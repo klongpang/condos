@@ -84,7 +84,7 @@ export async function endTenantContractAction(
           monthly_rent: tenantData.monthly_rent,
           end_reason: endData.end_reason,
           notes: endData.notes,
-          moved_out_at: new Date().toISOString(),
+          moved_out_at: endData.actual_end_date,
         },
       ]);
 
