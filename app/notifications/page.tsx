@@ -10,6 +10,7 @@ import {
   Search,
   Eye,
   CheckCircle,
+  CreditCard,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
@@ -103,6 +104,8 @@ export default function NotificationsPage() {
         return <Clock className="h-4 w-4 text-orange-500" />;
       case "payment_received":
         return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case "condo_payment_due":
+        return <CreditCard className="h-4 w-4 text-purple-500" />;
       case "maintenance":
         return <AlertTriangle className="h-4 w-4 text-blue-500" />;
       default:
@@ -120,6 +123,8 @@ export default function NotificationsPage() {
         return "สัญญาใกล้หมดอายุ";
       case "payment_received":
         return "ได้รับการชำระเงิน";
+      case "condo_payment_due":
+        return "ถึงกำหนดชำระค่าคอนโด";
       case "maintenance":
         return "แจ้งซ่อมบำรุง";
       default:
@@ -340,6 +345,7 @@ export default function NotificationsPage() {
                 <option value="rent_due">ค่าเช่าครบกำหนด</option>
                 <option value="contract_expiring">สัญญาใกล้หมดอายุ</option>
                 <option value="payment_received">ได้รับการชำระเงิน</option>
+                <option value="condo_payment_due">ถึงกำหนดชำระค่าคอนโด</option>
                 <option value="maintenance">แจ้งซ่อมบำรุง</option>
               </select>
             </div>

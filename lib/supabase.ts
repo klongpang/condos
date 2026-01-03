@@ -146,7 +146,7 @@ export interface Document {
 export interface Notification {
   id: string
   user_id: string
-  type: "rent_due" | "rent_overdue" | "contract_expiring" | "maintenance" | "payment_received" | "system_alert"
+  type: "rent_due" | "rent_overdue" | "contract_expiring" | "maintenance" | "payment_received" | "condo_payment_due" | "system_alert"
   title: string
   message: string
   date: string
@@ -155,6 +155,9 @@ export interface Notification {
   tenant_id?: string
   condo_id?: string
   amount?: number
+  email_sent?: boolean
+  email_sent_at?: string
+  reference_id?: string
   created_at: string
   updated_at: string
   tenant?: Tenant // Joined tenant data
