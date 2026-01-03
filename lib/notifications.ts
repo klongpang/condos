@@ -328,29 +328,42 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
     if (allNotifications.length > 0) {
       console.log(`[Notifications] Inserting ${allNotifications.length} notifications...`);
       
-      // Use upsert with reference_id to avoid duplicates
-      const { data: inserted, error: insertError } = await client
+      // Get existing reference_ids to avoid duplicates
+      const referenceIds = allNotifications.map((n) => n.reference_id);
+      const { data: existing } = await client
         .from("notifications")
-        .upsert(
-          allNotifications.map((n) => ({
-            ...n,
-            date: new Date().toISOString(),
-            is_read: false,
-            email_sent: false,
-          })),
-          {
-            onConflict: "user_id,reference_id",
-            ignoreDuplicates: true,
-          }
-        )
-        .select();
+        .select("reference_id")
+        .in("reference_id", referenceIds);
+      
+      const existingRefs = new Set(existing?.map((e) => e.reference_id) || []);
+      
+      // Filter out notifications that already exist
+      const newNotifications = allNotifications.filter(
+        (n) => !existingRefs.has(n.reference_id)
+      );
+      
+      if (newNotifications.length > 0) {
+        const { data: inserted, error: insertError } = await client
+          .from("notifications")
+          .insert(
+            newNotifications.map((n) => ({
+              ...n,
+              date: new Date().toISOString(),
+              is_read: false,
+              email_sent: false,
+            }))
+          )
+          .select();
 
-      if (insertError) {
-        result.errors.push(`Insert failed: ${insertError.message}`);
-        result.success = false;
+        if (insertError) {
+          result.errors.push(`Insert failed: ${insertError.message}`);
+          result.success = false;
+        } else {
+          result.created = inserted?.length || 0;
+          console.log(`[Notifications] ✅ Created ${result.created} new notifications`);
+        }
       } else {
-        result.created = inserted?.length || 0;
-        console.log(`[Notifications] ✅ Created ${result.created} new notifications`);
+        console.log(`[Notifications] All ${allNotifications.length} notifications already exist, skipping insert`);
       }
     }
 
