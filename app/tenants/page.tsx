@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Plus,
   Edit,
@@ -14,6 +14,7 @@ import {
   File,
   X,
   AlertCircle,
+  Info,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
@@ -135,6 +136,51 @@ export default function TenantsPage() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [documentType, setDocumentType] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+
+  // Installment modal states
+  const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
+  const [selectedTenantForInstallment, setSelectedTenantForInstallment] = useState<Tenant | null>(null);
+
+  // Calculate installments for a tenant
+  const installments = useMemo(() => {
+    if (!selectedTenantForInstallment) return [];
+    
+    const startDate = new Date(selectedTenantForInstallment.rental_start);
+    const endDate = new Date(selectedTenantForInstallment.rental_end);
+    const result: { installmentNo: number; startDate: Date; endDate: Date }[] = [];
+    
+    // Calculate total number of months (this gives the correct count)
+    const totalMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 
+      + (endDate.getMonth() - startDate.getMonth());
+    
+    const startDay = startDate.getDate(); // วันที่เริ่มสัญญา (เช่น 21)
+    
+    for (let i = 0; i < totalMonths; i++) {
+      // Period start: same day of the start date for each month
+      const periodStart = new Date(startDate.getFullYear(), startDate.getMonth() + i, startDay);
+      
+      // Period end: same day of next month (or contract end for last installment)
+      let periodEnd = new Date(startDate.getFullYear(), startDate.getMonth() + i + 1, startDay);
+      
+      // For the last installment, use contract end date
+      if (i === totalMonths - 1) {
+        periodEnd = new Date(endDate);
+      }
+      
+      result.push({
+        installmentNo: i + 1,
+        startDate: periodStart,
+        endDate: periodEnd,
+      });
+    }
+    
+    return result;
+  }, [selectedTenantForInstallment]);
+
+  const openInstallmentModal = (tenant: Tenant) => {
+    setSelectedTenantForInstallment(tenant);
+    setIsInstallmentModalOpen(true);
+  };
 
   // Filter tenants based on status and condo - ใช้ tenants ที่ถูกกรองโดย useTenantsDB แล้ว
   const filteredTenants = tenants.filter((tenant) => {
@@ -459,12 +505,20 @@ export default function TenantsPage() {
             const rentalEndTH = rentalEnd.toLocaleDateString("th-TH");
 
             return (
-                <div className="text-sm">
-                    <div>{rentalStartTH}</div>
-                    <div className={endClass}>
-                        ถึง {rentalEndTH}
+                <div className="flex items-center gap-2">
+                    <div className="text-sm">
+                        <div>{rentalStartTH}</div>
+                        <div className={endClass}>
+                            ถึง {rentalEndTH}
+                        </div>
                     </div>
-                    {/* <div className="text-xs text-blue-500">(เหลือ {daysRemaining} วัน)</div> */}
+                    <button
+                        onClick={() => openInstallmentModal(tenant)}
+                        className="p-1 text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded transition-colors"
+                        title="ดูงวดการเช่า"
+                    >
+                        <Info className="h-4 w-4" />
+                    </button>
                 </div>
             );
         },
@@ -1062,6 +1116,65 @@ export default function TenantsPage() {
           cancelText="ยกเลิก"
           type="danger"
         />
+
+        {/* Installment Schedule Modal */}
+        <Modal
+          isOpen={isInstallmentModalOpen}
+          onClose={() => {
+            setIsInstallmentModalOpen(false);
+            setSelectedTenantForInstallment(null);
+          }}
+          title={`งวดการเช่า - ${selectedTenantForInstallment?.full_name || ""}`}
+          size="md"
+        >
+          <div className="space-y-4">
+            {selectedTenantForInstallment && (
+              <div className="bg-gray-700/50 rounded-lg p-3 mb-4">
+                <div className="text-sm text-gray-300">
+                  <span className="font-medium">ระยะเวลาสัญญา:</span>{" "}
+                  {new Date(selectedTenantForInstallment.rental_start).toLocaleDateString("th-TH")} -{" "}
+                  {new Date(selectedTenantForInstallment.rental_end).toLocaleDateString("th-TH")}
+                </div>
+                <div className="text-sm text-gray-400 mt-1">
+                  รวม {installments.length} งวด
+                </div>
+              </div>
+            )}
+            
+            <div className="max-h-96 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-700 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-gray-300 font-medium">งวดที่</th>
+                    <th className="px-4 py-3 text-left text-gray-300 font-medium">วันที่ - สิ้นเดือน</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {installments.map((inst) => (
+                    <tr key={inst.installmentNo} className="hover:bg-gray-700/50">
+                      <td className="px-4 py-3 text-white font-medium">{inst.installmentNo}</td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {inst.startDate.toLocaleDateString("th-TH")} - {inst.endDate.toLocaleDateString("th-TH")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t border-gray-700">
+              <button
+                onClick={() => {
+                  setIsInstallmentModalOpen(false);
+                  setSelectedTenantForInstallment(null);
+                }}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors"
+              >
+                ปิด
+              </button>
+            </div>
+          </div>
+        </Modal>
 
       </div>
     </MainLayout>

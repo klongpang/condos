@@ -81,11 +81,37 @@ export default function RentPage() {
 
   // Filter states
   const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>("");
+  const [selectedTenantFilter, setSelectedTenantFilter] = useState<string>(""); // New tenant filter
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<
     "all" | "unpaid" | "paid" | "overdue"
   >("all");
   const [selectedYearFilter, setSelectedYearFilter] = useState("");
   const [selectedMonthFilter, setSelectedMonthFilter] = useState("");
+
+  // Get unique tenants from payments data (includes past tenants with payment history)
+  const filteredTenantsForFilter = useMemo(() => {
+    if (!selectedCondoFilter) {
+      return []; // Return empty when no condo selected (dropdown will be disabled)
+    }
+    
+    // Filter payments by selected condo first
+    const condoPayments = payments.filter(
+      (p) => p.tenant?.condo_id === selectedCondoFilter
+    );
+    
+    // Extract unique tenants from these payments
+    const tenantMap = new Map<string, { id: string; full_name: string }>();
+    condoPayments.forEach((p) => {
+      if (p.tenant && !tenantMap.has(p.tenant_id)) {
+        tenantMap.set(p.tenant_id, {
+          id: p.tenant_id,
+          full_name: p.tenant.full_name || "ไม่ทราบชื่อ",
+        });
+      }
+    });
+    
+    return Array.from(tenantMap.values());
+  }, [payments, selectedCondoFilter]);
 
   // ข้อมูลเดือนภาษาไทย
   const months = [
@@ -213,6 +239,13 @@ export default function RentPage() {
       );
     }
 
+    // กรองตามผู้เช่า
+    if (selectedTenantFilter) {
+      filtered = filtered.filter(
+        (p) => p.tenant_id === selectedTenantFilter
+      );
+    }
+
     // กรองตามสถานะ
     if (paymentStatusFilter !== "all") {
       filtered = filtered.filter((p) => p.status === paymentStatusFilter);
@@ -240,6 +273,7 @@ export default function RentPage() {
   }, [
     payments,
     selectedCondoFilter,
+    selectedTenantFilter,
     paymentStatusFilter,
     selectedYearFilter,
     selectedMonthFilter,
@@ -248,6 +282,7 @@ export default function RentPage() {
   // ฟังก์ชันล้างตัวกรองทั้งหมด
   const clearAllFilters = () => {
     setSelectedCondoFilter("");
+    setSelectedTenantFilter("");
     setPaymentStatusFilter("all");
     setSelectedYearFilter("");
     setSelectedMonthFilter("");
@@ -670,13 +705,36 @@ export default function RentPage() {
               </label>
               <select
                 value={selectedCondoFilter}
-                onChange={(e) => setSelectedCondoFilter(e.target.value)}
+                onChange={(e) => {
+                  setSelectedCondoFilter(e.target.value);
+                  setSelectedTenantFilter(""); // Reset tenant filter when condo changes
+                }}
                 className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="">ทั้งหมด</option>
                 {condos.map((condo) => (
                   <option key={condo.id} value={condo.id}>
                     {condo.name} ({condo.room_number})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* ผู้เช่าฟิลเตอร์ */}
+            <div>
+              <label className="text-sm font-medium text-gray-300 mr-2">
+                ผู้เช่า:
+              </label>
+              <select
+                value={selectedTenantFilter}
+                onChange={(e) => setSelectedTenantFilter(e.target.value)}
+                disabled={!selectedCondoFilter}
+                className={`px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${!selectedCondoFilter ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <option value="">{selectedCondoFilter ? 'ทั้งหมด' : 'เลือกคอนโดก่อน'}</option>
+                {filteredTenantsForFilter.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id}>
+                    {tenant.full_name}
                   </option>
                 ))}
               </select>

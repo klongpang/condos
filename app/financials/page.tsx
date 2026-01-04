@@ -469,7 +469,33 @@ export default function FinancialsPage() {
     { value: "other", label: "อื่นๆ" },
   ];
 
-  const yearOptions = Array.from({ length: 3 }, (_, i) => currentYear - i); // Current year and 2 years back
+  // Calculate year options based on actual data
+  const yearOptions = useMemo(() => {
+    const allRecords = [...incomeRecords, ...expenseRecords];
+    if (allRecords.length === 0) {
+      // If no data, show only current year
+      return [currentYear];
+    }
+    
+    // Find years from data, filtering out invalid years (e.g., Buddhist Era years stored incorrectly)
+    const validYears = allRecords
+      .map((r) => new Date(r.date).getFullYear())
+      .filter((year) => year >= 2000 && year <= currentYear + 1); // Only valid CE years
+    
+    if (validYears.length === 0) {
+      return [currentYear];
+    }
+    
+    const minYear = Math.min(...validYears);
+    const maxYear = Math.max(currentYear, Math.max(...validYears)); // Ensure current year is included
+    
+    // Generate array from maxYear to minYear (descending)
+    const yearRange: number[] = [];
+    for (let year = maxYear; year >= minYear; year--) {
+      yearRange.push(year);
+    }
+    return yearRange;
+  }, [incomeRecords, expenseRecords, currentYear]);
   const monthOptions = [
     { value: "1", label: "มกราคม" },
     { value: "2", label: "กุมภาพันธ์" },

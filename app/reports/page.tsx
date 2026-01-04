@@ -159,14 +159,23 @@ export default function ReportsPage() {
     return Array.from(categoryMap.entries()).map(([name, value]) => ({ name, value }))
   }, [filteredFinancialRecords.expense])
 
-  // Available Years for filter - always include current year
+  // Available Years for filter - always include current year, filter out invalid years (e.g., Buddhist Era stored incorrectly)
   const availableYears = useMemo(() => {
+    const currentYear = new Date().getFullYear()
     const years = new Set<number>()
     // Always add current year so it's selectable even if no data exists
-    years.add(new Date().getFullYear())
-    incomeRecords.forEach((r) => years.add(new Date(r.date).getFullYear()))
-    expenseRecords.forEach((r) => years.add(new Date(r.date).getFullYear()))
-    payments.forEach((p) => years.add(new Date(p.due_date).getFullYear()))
+    years.add(currentYear)
+    
+    // Helper to add year only if valid (CE years between 2000 and currentYear + 1)
+    const addIfValid = (year: number) => {
+      if (year >= 2000 && year <= currentYear + 1) {
+        years.add(year)
+      }
+    }
+    
+    incomeRecords.forEach((r) => addIfValid(new Date(r.date).getFullYear()))
+    expenseRecords.forEach((r) => addIfValid(new Date(r.date).getFullYear()))
+    payments.forEach((p) => addIfValid(new Date(p.due_date).getFullYear()))
     return Array.from(years).sort((a, b) => b - a)
   }, [incomeRecords, expenseRecords, payments])
 
