@@ -29,21 +29,23 @@ interface NotificationInput {
 }
 
 /**
- * ส่ง email แจ้งเตือน
+ * ส่ง email แจ้งเตือนไปยังผู้รับที่ระบุ
  */
 async function sendNotificationEmail(
-  notifications: NotificationInput[]
+  notifications: NotificationInput[],
+  recipientEmail: string,
+  recipientName?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const { user, pass, to } = NOTIFICATION_EMAIL_CONFIG;
+  const { user, pass } = NOTIFICATION_EMAIL_CONFIG;
 
-  if (!user || !pass || !to) {
+  if (!user || !pass) {
     return {
       success: false,
-      error: "Email not configured. Set NOTIFICATION_EMAIL_USER, NOTIFICATION_EMAIL_PASS, NOTIFICATION_EMAIL_TO",
+      error: "Email not configured. Set NOTIFICATION_EMAIL_USER, NOTIFICATION_EMAIL_PASS",
     };
   }
 
-  if (notifications.length === 0) {
+  if (notifications.length === 0 || !recipientEmail) {
     return { success: true };
   }
 
@@ -73,8 +75,11 @@ async function sendNotificationEmail(
         )
         .join("");
 
+    const greeting = recipientName ? `สวัสดี ${recipientName},` : "สวัสดี,";
+
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <p style="color: #333;">${greeting}</p>
         <h2 style="color: #1a1a1a;">🔔 สรุปการแจ้งเตือนประจำวัน</h2>
         <p style="color: #666;">วันที่: ${now}</p>
         
@@ -114,21 +119,105 @@ async function sendNotificationEmail(
 
     await transporter.sendMail({
       from: user,
-      to,
+      to: recipientEmail,
       subject: `🔔 แจ้งเตือน: ${notifications.length} รายการ - ${now}`,
       html: htmlContent,
     });
 
-    console.log(`[Notifications] ✅ Email sent to ${to} with ${notifications.length} notifications`);
+    console.log(`[Notifications] ✅ Email sent to ${recipientEmail} with ${notifications.length} notifications`);
     return { success: true };
   } catch (err) {
-    console.error("[Notifications] Email failed:", err);
+    console.error(`[Notifications] Email failed for ${recipientEmail}:`, err);
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to send email",
     };
   }
 }
+
+/**
+ * ส่ง email แยกตาม user - Admin ได้รับทั้งหมด, User ได้รับเฉพาะของตัวเอง
+ */
+async function sendUserSpecificEmails(
+  notifications: NotificationInput[],
+  client: any
+): Promise<{ success: boolean; adminSent: boolean; usersSent: number; errors: string[] }> {
+  const result = {
+    success: true,
+    adminSent: false,
+    usersSent: 0,
+    errors: [] as string[],
+  };
+
+  if (notifications.length === 0) {
+    return result;
+  }
+
+  const adminEmail = NOTIFICATION_EMAIL_CONFIG.to;
+
+  // 1. ส่ง email ให้ Admin (ได้รับทุก notification)
+  if (adminEmail) {
+    console.log(`[Notifications] Sending admin email to ${adminEmail}...`);
+    const adminResult = await sendNotificationEmail(notifications, adminEmail, "Admin");
+    if (adminResult.success) {
+      result.adminSent = true;
+    } else if (adminResult.error) {
+      result.errors.push(`Admin email: ${adminResult.error}`);
+    }
+  }
+
+  // 2. จัดกลุ่ม notifications ตาม user_id
+  const notificationsByUser = new Map<string, NotificationInput[]>();
+  for (const notification of notifications) {
+    const userId = notification.user_id;
+    if (!notificationsByUser.has(userId)) {
+      notificationsByUser.set(userId, []);
+    }
+    notificationsByUser.get(userId)!.push(notification);
+  }
+
+  // 3. ดึง email ของแต่ละ user
+  const userIds = Array.from(notificationsByUser.keys());
+  const { data: users, error: usersError } = await client
+    .from("users")
+    .select("id, email, full_name")
+    .in("id", userIds);
+
+  if (usersError) {
+    result.errors.push(`Failed to fetch users: ${usersError.message}`);
+    result.success = false;
+    return result;
+  }
+
+  // 4. ส่ง email ให้แต่ละ user ที่มี email
+  for (const user of users || []) {
+    if (!user.email) {
+      console.log(`[Notifications] User ${user.id} has no email, skipping...`);
+      continue;
+    }
+
+    // ข้าม admin email เพื่อไม่ให้ส่งซ้ำ (กรณี admin = user)
+    if (user.email === adminEmail) {
+      console.log(`[Notifications] User ${user.id} is admin, already sent, skipping...`);
+      continue;
+    }
+
+    const userNotifications = notificationsByUser.get(user.id) || [];
+    if (userNotifications.length === 0) continue;
+
+    console.log(`[Notifications] Sending user email to ${user.email} (${userNotifications.length} notifications)...`);
+    const userResult = await sendNotificationEmail(userNotifications, user.email, user.full_name);
+    
+    if (userResult.success) {
+      result.usersSent++;
+    } else if (userResult.error) {
+      result.errors.push(`User ${user.email}: ${userResult.error}`);
+    }
+  }
+
+  return result;
+}
+
 
 /**
  * ตรวจสอบและสร้าง notifications ทั้งหมด
@@ -142,28 +231,40 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
     errors: [],
   };
 
+  // Helper function to format date as YYYY-MM-DD in local timezone
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = formatDateLocal(today);
 
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split("T")[0];
+  const tomorrowStr = formatDateLocal(tomorrow);
 
   const in30Days = new Date(today);
   in30Days.setDate(in30Days.getDate() + 30);
-  const in30DaysStr = in30Days.toISOString().split("T")[0];
+  const in30DaysStr = formatDateLocal(in30Days);
 
   const in60Days = new Date(today);
   in60Days.setDate(in60Days.getDate() + 60);
-  const in60DaysStr = in60Days.toISOString().split("T")[0];
+  const in60DaysStr = formatDateLocal(in60Days);
+
+  console.log(`[Notifications] Date check: today=${todayStr}, tomorrow=${tomorrowStr}`);
 
   const allNotifications: NotificationInput[] = [];
 
   try {
     // ==================== 1. ค่าเช่าเกินกำหนด (rent_overdue) ====================
-    // status = 'unpaid' และ due_date < today
+    // status = 'overdue' และ due_date < today - ส่งทุกครั้งที่รัน
     console.log("[Notifications] Checking overdue rent payments...");
+    const runTimestamp = Date.now(); // ใช้ timestamp เพื่อให้ส่งได้ทุกครั้งที่รัน
+    
     const { data: overduePayments, error: overdueError } = await client
       .from("rent_payments")
       .select(`
@@ -174,7 +275,7 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
           condo:condo_id(id, name, room_number, user_id)
         )
       `)
-      .eq("status", "unpaid")
+      .eq("status", "overdue")
       .lt("due_date", todayStr);
 
     if (overdueError) {
@@ -197,7 +298,7 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
           tenant_id: tenant.id,
           condo_id: tenant.condo.id,
           amount: payment.amount,
-          reference_id: `rent_overdue_${payment.id}_${todayStr}`,
+          reference_id: `rent_overdue_${payment.id}_${runTimestamp}`, // ใช้ timestamp เพื่อส่งทุกครั้ง
         });
       }
       console.log(`[Notifications] Found ${overduePayments.length} overdue payments`);
@@ -205,7 +306,7 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
 
     // ==================== 2. ค่าเช่าใกล้ครบกำหนด (rent_due) ====================
     // due_date = tomorrow และ status != 'paid'
-    console.log("[Notifications] Checking rent due tomorrow...");
+    console.log(`[Notifications] Checking rent due tomorrow (${tomorrowStr})...`);
     const { data: dueSoonPayments, error: dueSoonError } = await client
       .from("rent_payments")
       .select(`
@@ -242,11 +343,10 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
     }
 
     // ==================== 3. สัญญาใกล้หมดอายุ (contract_expiring) ====================
-    // - ส่งครั้งเดียวตอน 60 วันก่อนหมด
-    // - ส่งทุกวันเมื่อเหลือ 30 วันหรือน้อยกว่า
+    // แจ้งเตือนทุกวันสำหรับ tenant ที่ rental_end อยู่ภายใน 60 วัน
     console.log("[Notifications] Checking expiring contracts...");
     
-    // Query: rental_end = exactly 60 days OR rental_end <= 30 days
+    // Query: rental_end <= 60 days และ > today (ยังไม่หมดอายุ)
     const { data: expiringTenants, error: expiringError } = await client
       .from("tenants")
       .select(`
@@ -254,8 +354,8 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
         condo:condo_id(id, name, room_number, user_id)
       `)
       .eq("is_active", true)
-      .or(`rental_end.eq.${in60DaysStr},rental_end.lte.${in30DaysStr}`)
-      .gt("rental_end", todayStr); // ยังไม่หมดอายุ
+      .lte("rental_end", in60DaysStr)  // หมดภายใน 60 วัน
+      .gt("rental_end", todayStr);      // ยังไม่หมดอายุ
 
     if (expiringError) {
       result.errors.push(`Contract expiring check failed: ${expiringError.message}`);
@@ -268,12 +368,8 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
           (new Date(tenant.rental_end).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
         );
 
-        // สร้าง reference_id ตามเงื่อนไข:
-        // - 60 วัน: ส่งครั้งเดียว (reference ตาม tenant + "60days")
-        // - <= 30 วัน: ส่งทุกวัน (reference ตาม tenant + วันที่)
-        const referenceId = daysUntilExpiry > 30
-          ? `contract_expiring_${tenant.id}_60days`  // ส่งครั้งเดียว
-          : `contract_expiring_${tenant.id}_${todayStr}`;  // ส่งทุกวัน
+        // ใช้ reference_id ตามวันที่ เพื่อให้ส่งได้ทุกวัน แต่ไม่ซ้ำในวันเดียวกัน
+        const referenceId = `contract_expiring_${tenant.id}_${todayStr}`;
 
         allNotifications.push({
           user_id: condo.user_id,
@@ -287,11 +383,11 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
           reference_id: referenceId,
         });
       }
-      console.log(`[Notifications] Found ${expiringTenants.length} expiring contracts`);
+      console.log(`[Notifications] Found ${expiringTenants.length} expiring contracts (within 60 days)`);
     }
 
     // ==================== 4. ถึงกำหนดชำระค่าคอนโด (condo_payment_due) ====================
-    // payment_due_date ตรงกับวันนี้
+    // payment_due_date ตรงกับวันนี้ (เก็บเป็น text ของวันที่ เช่น "4", "15")
     console.log("[Notifications] Checking condo payment due dates...");
     const todayDay = today.getDate().toString();
     
@@ -304,9 +400,11 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
     if (condosDueError) {
       result.errors.push(`Condo payment check failed: ${condosDueError.message}`);
     } else if (condosDue) {
+      let condoPaymentCount = 0;
       for (const condo of condosDue) {
-        // Check if payment_due_date matches today's day
-        const dueDay = new Date(condo.payment_due_date).getDate().toString();
+        // payment_due_date เก็บเป็น text ของวันที่ เช่น "4", "15", "28"
+        // ตรวจสอบโดยเปรียบเทียบโดยตรง
+        const dueDay = String(condo.payment_due_date).trim();
         if (dueDay !== todayDay) continue;
         if (!condo.user_id) continue;
 
@@ -320,8 +418,9 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
           amount: condo.installment_amount,
           reference_id: `condo_payment_${condo.id}_${todayStr}`,
         });
+        condoPaymentCount++;
       }
-      console.log(`[Notifications] Found ${condosDue.filter(c => new Date(c.payment_due_date).getDate().toString() === todayDay).length} condo payments due`);
+      console.log(`[Notifications] Found ${condoPaymentCount} condo payments due (today is day ${todayDay})`);
     }
 
     // ==================== Insert notifications ====================
@@ -367,11 +466,12 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
       }
     }
 
-    // ==================== Send email ====================
+    // ==================== Send emails (Admin + Users) ====================
     if (allNotifications.length > 0) {
-      const emailResult = await sendNotificationEmail(allNotifications);
-      if (emailResult.success) {
-        result.emailsSent = allNotifications.length;
+      const emailResult = await sendUserSpecificEmails(allNotifications, client);
+      
+      if (emailResult.adminSent || emailResult.usersSent > 0) {
+        result.emailsSent = (emailResult.adminSent ? 1 : 0) + emailResult.usersSent;
         
         // Mark notifications as email_sent
         const referenceIds = allNotifications.map((n) => n.reference_id);
@@ -379,8 +479,12 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
           .from("notifications")
           .update({ email_sent: true, email_sent_at: new Date().toISOString() })
           .in("reference_id", referenceIds);
-      } else if (emailResult.error) {
-        result.errors.push(`Email: ${emailResult.error}`);
+          
+        console.log(`[Notifications] ✅ Emails sent: Admin=${emailResult.adminSent}, Users=${emailResult.usersSent}`);
+      }
+      
+      if (emailResult.errors.length > 0) {
+        result.errors.push(...emailResult.errors);
       }
     }
   } catch (err) {
