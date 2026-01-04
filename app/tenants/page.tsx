@@ -965,14 +965,10 @@ export default function TenantsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
                 เลือกไฟล์เอกสาร
               </label>
-              <div className="border-2 border-dashed border-gray-600 rounded-lg p-6 text-center">
-                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-400 mb-2">
-                  ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์
-                </p>
+              <div className="flex items-center gap-3 p-3 border border-dashed border-gray-600 rounded-lg bg-gray-800/50">
                 <input
                   type="file"
                   multiple
@@ -983,51 +979,34 @@ export default function TenantsPage() {
                 />
                 <label
                   htmlFor="tenant-file-upload"
-                  className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg cursor-pointer transition-colors"
+                  className="inline-flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg cursor-pointer transition-colors shrink-0"
                 >
-                  <Plus className="h-4 w-4 mr-2" />
-                  เพิ่มไฟล์
+                  <Upload className="h-4 w-4 mr-1.5" />
+                  เลือกไฟล์
                 </label>
-                <p className="text-xs text-gray-500 mt-2">
-                  รองรับไฟล์: PDF, DOC, DOCX, JPG, PNG, TXT
-                </p>
+                <span className="text-xs text-gray-400">ลากไฟล์มาวางหรือคลิกเพื่อเลือก (PDF, DOC, JPG, PNG)</span>
               </div>
             </div>
 
             {uploadedFiles.length > 0 && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-300 mb-2">
-                  ไฟล์ที่เลือก ({uploadedFiles.length} ไฟล์):
-                </h4>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {uploadedFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between bg-gray-700 p-3 rounded-lg"
+              <div className="flex flex-wrap gap-2">
+                {uploadedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 bg-gray-700 px-2.5 py-1.5 rounded-lg text-sm"
+                  >
+                    <File className="h-3.5 w-3.5 text-gray-400" />
+                    <span className="text-white truncate max-w-[120px]" title={file.name}>{file.name}</span>
+                    <span className="text-xs text-gray-400">({(file.size / 1024).toFixed(0)}KB)</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(index)}
+                      className="text-red-400 hover:text-red-300 ml-1"
                     >
-                      <div className="flex items-center flex-1 min-w-0">
-                        <File className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <span className="text-sm text-white truncate block">
-                            {file.name}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {(file.size / 1024).toFixed(1)} KB •{" "}
-                            {file.type || "Unknown type"}
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeFile(index)}
-                        className="text-red-400 hover:text-red-300 ml-2 flex-shrink-0"
-                        title="ลบไฟล์"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
 
