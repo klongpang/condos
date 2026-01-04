@@ -34,9 +34,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: result.success,
-      message: `Created ${result.created} notifications, sent ${result.emailsSent} emails`,
+      message: `Created ${result.created}, Updated ${result.updated} summaries, sent ${result.emailsSent} emails`,
       data: {
         created: result.created,
+        updated: result.updated,
         emailsSent: result.emailsSent,
         errors: result.errors,
         duration: `${duration}ms`,

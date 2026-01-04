@@ -17,7 +17,7 @@ import type {
   IncomeRecord,
   ExpenseRecord,
   TenantHistory,
-  Notification,
+  NotificationSummary,
 } from "../supabase"
 
 // ==================== Query Keys ====================
@@ -29,7 +29,7 @@ export const queryKeys = {
   expenseRecords: (userId?: string) => ["expenseRecords", userId] as const,
   financialRecords: (userId?: string) => ["financialRecords", userId] as const,
   tenantHistory: (userId?: string) => ["tenantHistory", userId] as const,
-  notifications: (userId?: string) => ["notifications", userId] as const,
+  notificationSummaries: (userId?: string) => ["notificationSummaries", userId] as const,
 }
 
 // ==================== Fetch Functions ====================
@@ -104,16 +104,12 @@ async function fetchTenantHistory(userId?: string): Promise<TenantHistory[]> {
   return data || []
 }
 
-async function fetchNotifications(userId?: string): Promise<Notification[]> {
+async function fetchNotificationSummaries(userId?: string): Promise<NotificationSummary[]> {
   if (!userId) return []
 
   const { data, error: dbError } = await supabase
-    .from("notifications")
-    .select(`
-      *,
-      tenant:tenant_id(id, full_name),
-      condo:condo_id(id, name, room_number)
-    `)
+    .from("notification_summaries")
+    .select("*")
     .eq("user_id", userId)
     .order("date", { ascending: false })
 
@@ -224,42 +220,38 @@ export function useTenantHistory(userId?: string) {
 }
 
 /**
- * Hook สำหรับดึง Notifications พร้อม caching
+ * Hook สำหรับดึง Notification Summaries พร้อม caching
  * staleTime: 30 วินาที (ต้องอัพเดทบ่อย)
  */
 export function useNotifications(userId?: string) {
   const queryClient = useQueryClient()
 
   const query = useQuery({
-    queryKey: queryKeys.notifications(userId),
-    queryFn: () => fetchNotifications(userId),
+    queryKey: queryKeys.notificationSummaries(userId),
+    queryFn: () => fetchNotificationSummaries(userId),
     enabled: !!userId,
     staleTime: 30 * 1000, // 30 seconds
   })
 
-  const markAsRead = async (notificationId: string) => {
-    const { data: updatedNotification, error } = await supabase
-      .from("notifications")
+  const markAsRead = async (summaryId: string) => {
+    const { error } = await supabase
+      .from("notification_summaries")
       .update({ is_read: true, updated_at: new Date().toISOString() })
-      .eq("id", notificationId)
-      .select()
-      .single()
+      .eq("id", summaryId)
 
     if (error) throw error
 
     // Update cache optimistically
-    queryClient.setQueryData(queryKeys.notifications(userId), (old: Notification[] | undefined) =>
-      old?.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
+    queryClient.setQueryData(queryKeys.notificationSummaries(userId), (old: NotificationSummary[] | undefined) =>
+      old?.map((s) => (s.id === summaryId ? { ...s, is_read: true } : s))
     )
-
-    return updatedNotification
   }
 
   const markAllAsRead = async () => {
     if (!userId) return false
 
     const { error: dbError } = await supabase
-      .from("notifications")
+      .from("notification_summaries")
       .update({ is_read: true, updated_at: new Date().toISOString() })
       .eq("user_id", userId)
       .eq("is_read", false)
@@ -271,13 +263,21 @@ export function useNotifications(userId?: string) {
     return true
   }
 
+  // Compute stats from summaries
+  const summaries = query.data ?? []
+  const unreadCount = summaries.filter(s => !s.is_read).length
+  const totalItems = summaries.reduce((sum, s) => sum + s.total_count, 0)
+
   return {
-    notifications: query.data ?? [],
+    summaries,
+    notifications: summaries, // alias for backward compatibility
     loading: query.isLoading,
     error: query.error?.message ?? null,
     markAsRead,
     markAllAsRead,
     refetch: query.refetch,
+    unreadCount,
+    totalItems,
   }
 }
 

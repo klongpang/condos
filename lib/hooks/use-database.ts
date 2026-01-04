@@ -19,7 +19,6 @@ import type {
   ExpenseRecord,
   TenantHistory,
   Document,
-  Notification,
 } from "../supabase"
 
 // Custom hook for condos with real database
@@ -618,86 +617,4 @@ function _useDocumentsDBImpl({
   return { documents, loading, error, addDocument, deleteDocument, refetch: fetchDocuments }
 }
 
-// -------------------- Notifications --------------------
-export const useNotificationsDB = (userId?: string) => {
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      if (!userId) {
-        setNotifications([])
-        setLoading(false)
-        return
-      }
-      const { data, error: dbError } = await supabase
-        .from("notifications")
-        .select(
-          `
-          *,
-          tenant:tenant_id(id, full_name),
-          condo:condo_id(id, name, room_number)
-        `,
-        )
-        .eq("user_id", userId)
-        .order("date", { ascending: false })
-
-      if (dbError) throw dbError
-      setNotifications(data || [])
-    } catch (err: any) {
-      setError(err.message)
-      console.error("Error fetching notifications:", err)
-    } finally {
-      setLoading(false)
-    }
-  }, [userId])
-
-  useEffect(() => {
-    fetchNotifications()
-  }, [fetchNotifications])
-
-  const markAsRead = useCallback(async (notificationId: string) => {
-    try {
-      const updatedNotification = await supabase
-        .from("notifications")
-        .update({ is_read: true, updated_at: new Date().toISOString() })
-        .eq("id", notificationId)
-        .select()
-        .single()
-
-      if (updatedNotification) {
-        setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n)))
-      }
-      return updatedNotification
-    } catch (err: any) {
-      setError(err.message)
-      throw err
-    }
-  }, [])
-
-  const markAllAsRead = useCallback(async () => {
-    try {
-      if (!userId) {
-        setError("User not authenticated.")
-        return false
-      }
-      const { error: dbError } = await supabase
-        .from("notifications")
-        .update({ is_read: true, updated_at: new Date().toISOString() })
-        .eq("user_id", userId)
-        .eq("is_read", false) // Only mark unread as read
-
-      if (dbError) throw dbError
-      await fetchNotifications() // Refetch all to ensure UI is updated
-      return true
-    } catch (err: any) {
-      setError(err.message)
-      throw err
-    }
-  }, [userId, fetchNotifications])
-
-  return { notifications, loading, error, markAsRead, markAllAsRead, refetch: fetchNotifications }
-}

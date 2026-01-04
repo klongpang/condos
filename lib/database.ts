@@ -527,38 +527,4 @@ export const documentService = {
   },
 }
 
-// Notification functions
-export const notificationService = {
-  async getAll(userId: string): Promise<Notification[]> {
-    const { data, error } = await supabase
-      .from("notifications")
-      .select(
-        `
-            *,
-            tenant:tenant_id(id, full_name),
-            condo:condo_id(id, name, room_number)
-          `,
-      )
-      .eq("user_id", userId) // Filter by user_id
-      .order("date", { ascending: false })
 
-    return error ? [] : data
-  },
-
-  async update(id: string, updates: Partial<Notification>): Promise<Notification | null> {
-    const { data, error } = await supabase
-      .from("notifications")
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq("id", id)
-      .select()
-      .single()
-
-    return error ? null : data
-  },
-
-  async create(notificationData: Omit<Notification, "id" | "created_at" | "updated_at">): Promise<Notification | null> {
-    const { data, error } = await supabase.from("notifications").insert([notificationData]).select().single()
-
-    return error ? null : data
-  },
-}

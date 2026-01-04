@@ -143,23 +143,31 @@ export interface Document {
   created_at: string
 }
 
-export interface Notification {
-  id: string
-  user_id: string
-  type: "rent_due" | "rent_overdue" | "contract_expiring" | "maintenance" | "payment_received" | "condo_payment_due" | "system_alert"
+// New notification summary types
+export type NotificationType = "rent_due" | "rent_overdue" | "contract_expiring" | "maintenance" | "payment_received" | "condo_payment_due" | "system_alert"
+export type NotificationPriority = "high" | "medium" | "low"
+
+export interface NotificationItem {
+  type: NotificationType
   title: string
   message: string
-  date: string
-  is_read: boolean
-  priority: "high" | "medium" | "low"
+  priority: NotificationPriority
+  amount?: number
   tenant_id?: string
   condo_id?: string
-  amount?: number
-  email_sent?: boolean
+}
+
+export interface NotificationSummary {
+  id: string
+  user_id: string
+  date: string
+  items: NotificationItem[]
+  total_count: number
+  high_count: number
+  medium_count: number
+  is_read: boolean
+  email_sent: boolean
   email_sent_at?: string
-  reference_id?: string
   created_at: string
   updated_at: string
-  tenant?: Tenant // Joined tenant data
-  condo?: Condo // Joined condo data
 }

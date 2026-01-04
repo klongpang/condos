@@ -1,5 +1,5 @@
 import { supabaseAdmin, supabase } from "./supabase";
-import type { Notification, RentPayment, Tenant, Condo } from "./supabase";
+import type { NotificationItem, NotificationPriority, NotificationType, Tenant, Condo } from "./supabase";
 import nodemailer from "nodemailer";
 
 // Email configuration for notifications
@@ -12,27 +12,23 @@ const NOTIFICATION_EMAIL_CONFIG = {
 interface NotificationResult {
   success: boolean;
   created: number;
+  updated: number;
   emailsSent: number;
   errors: string[];
 }
 
-interface NotificationInput {
+interface UserNotificationData {
   user_id: string;
-  type: Notification["type"];
-  title: string;
-  message: string;
-  priority: Notification["priority"];
-  tenant_id?: string;
-  condo_id?: string;
-  amount?: number;
-  reference_id: string;
+  items: NotificationItem[];
+  high_count: number;
+  medium_count: number;
 }
 
 /**
  * ส่ง email แจ้งเตือนไปยังผู้รับที่ระบุ
  */
 async function sendNotificationEmail(
-  notifications: NotificationInput[],
+  items: NotificationItem[],
   recipientEmail: string,
   recipientName?: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -45,7 +41,7 @@ async function sendNotificationEmail(
     };
   }
 
-  if (notifications.length === 0 || !recipientEmail) {
+  if (items.length === 0 || !recipientEmail) {
     return { success: true };
   }
 
@@ -57,13 +53,13 @@ async function sendNotificationEmail(
 
     const now = new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
 
-    // Group notifications by priority
-    const highPriority = notifications.filter((n) => n.priority === "high");
-    const mediumPriority = notifications.filter((n) => n.priority === "medium");
-    const lowPriority = notifications.filter((n) => n.priority === "low");
+    // Group items by priority
+    const highPriority = items.filter((n) => n.priority === "high");
+    const mediumPriority = items.filter((n) => n.priority === "medium");
+    const lowPriority = items.filter((n) => n.priority === "low");
 
-    const renderNotifications = (items: NotificationInput[], color: string) =>
-      items
+    const renderItems = (notificationItems: NotificationItem[], color: string) =>
+      notificationItems
         .map(
           (n) => `
         <div style="border-left: 4px solid ${color}; padding: 10px; margin: 10px 0; background: #f9f9f9;">
@@ -87,7 +83,7 @@ async function sendNotificationEmail(
           highPriority.length > 0
             ? `
           <h3 style="color: #dc2626;">⚠️ สำคัญสูง (${highPriority.length} รายการ)</h3>
-          ${renderNotifications(highPriority, "#dc2626")}
+          ${renderItems(highPriority, "#dc2626")}
         `
             : ""
         }
@@ -96,7 +92,7 @@ async function sendNotificationEmail(
           mediumPriority.length > 0
             ? `
           <h3 style="color: #f59e0b;">📋 สำคัญปานกลาง (${mediumPriority.length} รายการ)</h3>
-          ${renderNotifications(mediumPriority, "#f59e0b")}
+          ${renderItems(mediumPriority, "#f59e0b")}
         `
             : ""
         }
@@ -105,26 +101,38 @@ async function sendNotificationEmail(
           lowPriority.length > 0
             ? `
           <h3 style="color: #10b981;">ℹ️ ทั่วไป (${lowPriority.length} รายการ)</h3>
-          ${renderNotifications(lowPriority, "#10b981")}
+          ${renderItems(lowPriority, "#10b981")}
         `
             : ""
         }
         
         <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;" />
-        <p style="color: #999; font-size: 12px;">
-          ข้อความนี้ส่งโดยอัตโนมัติจากระบบจัดการคอนโด
-        </p>
+        <div style="text-align: center; padding: 20px 0;">
+          <p style="color: #666; font-size: 14px; margin: 0 0 10px 0;">
+            เข้าสู่ระบบเพื่อดูรายละเอียดเพิ่มเติม
+          </p>
+          <a href="https://condos-kub.vercel.app/" 
+             style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #10b981, #059669); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px;">
+            ใช้งานระบบจัดการคอนโด
+          </a>
+          <p style="color: #999; font-size: 11px; margin: 15px 0 0 0;">
+            ระบบจัดการคอนโด | condos-kub.vercel.app
+          </p>
+          <p style="color: #bbb; font-size: 10px; margin: 5px 0 0 0;">
+            ข้อความนี้ส่งโดยอัตโนมัติ กรุณาอย่าตอบกลับ
+          </p>
+        </div>
       </div>
     `;
 
     await transporter.sendMail({
       from: user,
       to: recipientEmail,
-      subject: `🔔 แจ้งเตือน: ${notifications.length} รายการ - ${now}`,
+      subject: `[Condos] 🔔 แจ้งเตือน ${items.length} รายการ - ${now}`,
       html: htmlContent,
     });
 
-    console.log(`[Notifications] ✅ Email sent to ${recipientEmail} with ${notifications.length} notifications`);
+    console.log(`[Notifications] ✅ Email sent to ${recipientEmail} with ${items.length} items`);
     return { success: true };
   } catch (err) {
     console.error(`[Notifications] Email failed for ${recipientEmail}:`, err);
@@ -139,7 +147,8 @@ async function sendNotificationEmail(
  * ส่ง email แยกตาม user - Admin ได้รับทั้งหมด, User ได้รับเฉพาะของตัวเอง
  */
 async function sendUserSpecificEmails(
-  notifications: NotificationInput[],
+  userDataMap: Map<string, UserNotificationData>,
+  allItems: NotificationItem[],
   client: any
 ): Promise<{ success: boolean; adminSent: boolean; usersSent: number; errors: string[] }> {
   const result = {
@@ -149,7 +158,7 @@ async function sendUserSpecificEmails(
     errors: [] as string[],
   };
 
-  if (notifications.length === 0) {
+  if (allItems.length === 0) {
     return result;
   }
 
@@ -158,7 +167,7 @@ async function sendUserSpecificEmails(
   // 1. ส่ง email ให้ Admin (ได้รับทุก notification)
   if (adminEmail) {
     console.log(`[Notifications] Sending admin email to ${adminEmail}...`);
-    const adminResult = await sendNotificationEmail(notifications, adminEmail, "Admin");
+    const adminResult = await sendNotificationEmail(allItems, adminEmail, "Admin");
     if (adminResult.success) {
       result.adminSent = true;
     } else if (adminResult.error) {
@@ -166,18 +175,8 @@ async function sendUserSpecificEmails(
     }
   }
 
-  // 2. จัดกลุ่ม notifications ตาม user_id
-  const notificationsByUser = new Map<string, NotificationInput[]>();
-  for (const notification of notifications) {
-    const userId = notification.user_id;
-    if (!notificationsByUser.has(userId)) {
-      notificationsByUser.set(userId, []);
-    }
-    notificationsByUser.get(userId)!.push(notification);
-  }
-
-  // 3. ดึง email ของแต่ละ user
-  const userIds = Array.from(notificationsByUser.keys());
+  // 2. ดึง email ของแต่ละ user
+  const userIds = Array.from(userDataMap.keys());
   const { data: users, error: usersError } = await client
     .from("users")
     .select("id, email, full_name")
@@ -189,24 +188,24 @@ async function sendUserSpecificEmails(
     return result;
   }
 
-  // 4. ส่ง email ให้แต่ละ user ที่มี email
+  // 3. ส่ง email ให้แต่ละ user ที่มี email
   for (const user of users || []) {
     if (!user.email) {
       console.log(`[Notifications] User ${user.id} has no email, skipping...`);
       continue;
     }
 
-    // ข้าม admin email เพื่อไม่ให้ส่งซ้ำ (กรณี admin = user)
+    // ข้าม admin email เพื่อไม่ให้ส่งซ้ำ
     if (user.email === adminEmail) {
       console.log(`[Notifications] User ${user.id} is admin, already sent, skipping...`);
       continue;
     }
 
-    const userNotifications = notificationsByUser.get(user.id) || [];
-    if (userNotifications.length === 0) continue;
+    const userData = userDataMap.get(user.id);
+    if (!userData || userData.items.length === 0) continue;
 
-    console.log(`[Notifications] Sending user email to ${user.email} (${userNotifications.length} notifications)...`);
-    const userResult = await sendNotificationEmail(userNotifications, user.email, user.full_name);
+    console.log(`[Notifications] Sending user email to ${user.email} (${userData.items.length} items)...`);
+    const userResult = await sendNotificationEmail(userData.items, user.email, user.full_name);
     
     if (userResult.success) {
       result.usersSent++;
@@ -218,25 +217,25 @@ async function sendUserSpecificEmails(
   return result;
 }
 
+// Helper function to format date as YYYY-MM-DD in local timezone
+const formatDateLocal = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 /**
- * ตรวจสอบและสร้าง notifications ทั้งหมด
+ * ตรวจสอบและสร้าง notification summaries
  */
 export async function checkAndGenerateNotifications(): Promise<NotificationResult> {
   const client = supabaseAdmin || supabase;
   const result: NotificationResult = {
     success: true,
     created: 0,
+    updated: 0,
     emailsSent: 0,
     errors: [],
-  };
-
-  // Helper function to format date as YYYY-MM-DD in local timezone
-  const formatDateLocal = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
   };
 
   const today = new Date();
@@ -247,24 +246,35 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = formatDateLocal(tomorrow);
 
-  const in30Days = new Date(today);
-  in30Days.setDate(in30Days.getDate() + 30);
-  const in30DaysStr = formatDateLocal(in30Days);
-
   const in60Days = new Date(today);
   in60Days.setDate(in60Days.getDate() + 60);
   const in60DaysStr = formatDateLocal(in60Days);
 
   console.log(`[Notifications] Date check: today=${todayStr}, tomorrow=${tomorrowStr}`);
 
-  const allNotifications: NotificationInput[] = [];
+  // Map to collect items per user
+  const userDataMap = new Map<string, UserNotificationData>();
+  const allItems: NotificationItem[] = [];
+
+  const addItem = (userId: string, item: NotificationItem) => {
+    if (!userDataMap.has(userId)) {
+      userDataMap.set(userId, {
+        user_id: userId,
+        items: [],
+        high_count: 0,
+        medium_count: 0,
+      });
+    }
+    const userData = userDataMap.get(userId)!;
+    userData.items.push(item);
+    if (item.priority === "high") userData.high_count++;
+    if (item.priority === "medium") userData.medium_count++;
+    allItems.push(item);
+  };
 
   try {
     // ==================== 1. ค่าเช่าเกินกำหนด (rent_overdue) ====================
-    // status = 'overdue' และ due_date < today - ส่งทุกครั้งที่รัน
     console.log("[Notifications] Checking overdue rent payments...");
-    const runTimestamp = Date.now(); // ใช้ timestamp เพื่อให้ส่งได้ทุกครั้งที่รัน
-    
     const { data: overduePayments, error: overdueError } = await client
       .from("rent_payments")
       .select(`
@@ -289,23 +299,20 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
           (today.getTime() - new Date(payment.due_date).getTime()) / (1000 * 60 * 60 * 24)
         );
 
-        allNotifications.push({
-          user_id: tenant.condo.user_id,
+        addItem(tenant.condo.user_id, {
           type: "rent_overdue",
           title: `ค่าเช่าเกินกำหนด ${daysOverdue} วัน`,
           message: `ผู้เช่า: ${tenant.full_name} | ห้อง: ${tenant.condo.name} (${tenant.condo.room_number}) | ครบกำหนด: ${new Date(payment.due_date).toLocaleDateString("th-TH")}`,
           priority: "high",
+          amount: payment.amount,
           tenant_id: tenant.id,
           condo_id: tenant.condo.id,
-          amount: payment.amount,
-          reference_id: `rent_overdue_${payment.id}_${runTimestamp}`, // ใช้ timestamp เพื่อส่งทุกครั้ง
         });
       }
       console.log(`[Notifications] Found ${overduePayments.length} overdue payments`);
     }
 
     // ==================== 2. ค่าเช่าใกล้ครบกำหนด (rent_due) ====================
-    // due_date = tomorrow และ status != 'paid'
     console.log(`[Notifications] Checking rent due tomorrow (${tomorrowStr})...`);
     const { data: dueSoonPayments, error: dueSoonError } = await client
       .from("rent_payments")
@@ -327,26 +334,21 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
         const tenant = payment.tenant as Tenant & { condo: Condo };
         if (!tenant?.condo?.user_id) continue;
 
-        allNotifications.push({
-          user_id: tenant.condo.user_id,
+        addItem(tenant.condo.user_id, {
           type: "rent_due",
           title: "ค่าเช่าครบกำหนดพรุ่งนี้",
           message: `ผู้เช่า: ${tenant.full_name} | ห้อง: ${tenant.condo.name} (${tenant.condo.room_number}) | ครบกำหนด: ${new Date(payment.due_date).toLocaleDateString("th-TH")}`,
           priority: "medium",
+          amount: payment.amount,
           tenant_id: tenant.id,
           condo_id: tenant.condo.id,
-          amount: payment.amount,
-          reference_id: `rent_due_${payment.id}_${todayStr}`,
         });
       }
       console.log(`[Notifications] Found ${dueSoonPayments.length} payments due tomorrow`);
     }
 
     // ==================== 3. สัญญาใกล้หมดอายุ (contract_expiring) ====================
-    // แจ้งเตือนทุกวันสำหรับ tenant ที่ rental_end อยู่ภายใน 60 วัน
     console.log("[Notifications] Checking expiring contracts...");
-    
-    // Query: rental_end <= 60 days และ > today (ยังไม่หมดอายุ)
     const { data: expiringTenants, error: expiringError } = await client
       .from("tenants")
       .select(`
@@ -354,8 +356,8 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
         condo:condo_id(id, name, room_number, user_id)
       `)
       .eq("is_active", true)
-      .lte("rental_end", in60DaysStr)  // หมดภายใน 60 วัน
-      .gt("rental_end", todayStr);      // ยังไม่หมดอายุ
+      .lte("rental_end", in60DaysStr)
+      .gt("rental_end", todayStr);
 
     if (expiringError) {
       result.errors.push(`Contract expiring check failed: ${expiringError.message}`);
@@ -368,26 +370,20 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
           (new Date(tenant.rental_end).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
         );
 
-        // ใช้ reference_id ตามวันที่ เพื่อให้ส่งได้ทุกวัน แต่ไม่ซ้ำในวันเดียวกัน
-        const referenceId = `contract_expiring_${tenant.id}_${todayStr}`;
-
-        allNotifications.push({
-          user_id: condo.user_id,
+        addItem(condo.user_id, {
           type: "contract_expiring",
           title: `สัญญาหมดอายุใน ${daysUntilExpiry} วัน`,
           message: `ผู้เช่า: ${tenant.full_name} | ห้อง: ${condo.name} (${condo.room_number}) | สิ้นสุด: ${new Date(tenant.rental_end).toLocaleDateString("th-TH")}`,
           priority: daysUntilExpiry <= 30 ? "high" : "medium",
+          amount: tenant.monthly_rent,
           tenant_id: tenant.id,
           condo_id: condo.id,
-          amount: tenant.monthly_rent,
-          reference_id: referenceId,
         });
       }
-      console.log(`[Notifications] Found ${expiringTenants.length} expiring contracts (within 60 days)`);
+      console.log(`[Notifications] Found ${expiringTenants.length} expiring contracts`);
     }
 
     // ==================== 4. ถึงกำหนดชำระค่าคอนโด (condo_payment_due) ====================
-    // payment_due_date ตรงกับวันนี้ (เก็บเป็น text ของวันที่ เช่น "4", "15")
     console.log("[Notifications] Checking condo payment due dates...");
     const todayDay = today.getDate().toString();
     
@@ -402,84 +398,104 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
     } else if (condosDue) {
       let condoPaymentCount = 0;
       for (const condo of condosDue) {
-        // payment_due_date เก็บเป็น text ของวันที่ เช่น "4", "15", "28"
-        // ตรวจสอบโดยเปรียบเทียบโดยตรง
         const dueDay = String(condo.payment_due_date).trim();
         if (dueDay !== todayDay) continue;
         if (!condo.user_id) continue;
 
-        allNotifications.push({
-          user_id: condo.user_id,
+        addItem(condo.user_id, {
           type: "condo_payment_due",
           title: "ถึงกำหนดชำระค่าคอนโด",
           message: `คอนโด: ${condo.name} (${condo.room_number}) | วันครบกำหนด: วันที่ ${dueDay} ของเดือน`,
           priority: "high",
-          condo_id: condo.id,
           amount: condo.installment_amount,
-          reference_id: `condo_payment_${condo.id}_${todayStr}`,
+          condo_id: condo.id,
         });
         condoPaymentCount++;
       }
       console.log(`[Notifications] Found ${condoPaymentCount} condo payments due (today is day ${todayDay})`);
     }
 
-    // ==================== Insert notifications ====================
-    if (allNotifications.length > 0) {
-      console.log(`[Notifications] Inserting ${allNotifications.length} notifications...`);
+    // ==================== Upsert notification summaries ====================
+    if (userDataMap.size > 0) {
+      console.log(`[Notifications] Upserting ${userDataMap.size} notification summaries...`);
       
-      // Get existing reference_ids to avoid duplicates
-      const referenceIds = allNotifications.map((n) => n.reference_id);
-      const { data: existing } = await client
-        .from("notifications")
-        .select("reference_id")
-        .in("reference_id", referenceIds);
-      
-      const existingRefs = new Set(existing?.map((e) => e.reference_id) || []);
-      
-      // Filter out notifications that already exist
-      const newNotifications = allNotifications.filter(
-        (n) => !existingRefs.has(n.reference_id)
-      );
-      
-      if (newNotifications.length > 0) {
-        const { data: inserted, error: insertError } = await client
-          .from("notifications")
-          .insert(
-            newNotifications.map((n) => ({
-              ...n,
-              date: new Date().toISOString(),
+      for (const [userId, userData] of userDataMap) {
+        const { data: existing, error: selectError } = await client
+          .from("notification_summaries")
+          .select("id, items")
+          .eq("user_id", userId)
+          .eq("date", todayStr)
+          .single();
+
+        if (selectError && selectError.code !== "PGRST116") {
+          result.errors.push(`Select failed for user ${userId}: ${selectError.message}`);
+          continue;
+        }
+
+        if (existing) {
+          // Update existing record - merge items
+          const existingItems = existing.items || [];
+          const mergedItems = [...existingItems, ...userData.items];
+          const highCount = mergedItems.filter(i => i.priority === "high").length;
+          const mediumCount = mergedItems.filter(i => i.priority === "medium").length;
+
+          const { error: updateError } = await client
+            .from("notification_summaries")
+            .update({
+              items: mergedItems,
+              total_count: mergedItems.length,
+              high_count: highCount,
+              medium_count: mediumCount,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", existing.id);
+
+          if (updateError) {
+            result.errors.push(`Update failed for user ${userId}: ${updateError.message}`);
+          } else {
+            result.updated++;
+          }
+        } else {
+          // Insert new record
+          const { error: insertError } = await client
+            .from("notification_summaries")
+            .insert({
+              user_id: userId,
+              date: todayStr,
+              items: userData.items,
+              total_count: userData.items.length,
+              high_count: userData.high_count,
+              medium_count: userData.medium_count,
               is_read: false,
               email_sent: false,
-            }))
-          )
-          .select();
+            });
 
-        if (insertError) {
-          result.errors.push(`Insert failed: ${insertError.message}`);
-          result.success = false;
-        } else {
-          result.created = inserted?.length || 0;
-          console.log(`[Notifications] ✅ Created ${result.created} new notifications`);
+          if (insertError) {
+            result.errors.push(`Insert failed for user ${userId}: ${insertError.message}`);
+          } else {
+            result.created++;
+          }
         }
-      } else {
-        console.log(`[Notifications] All ${allNotifications.length} notifications already exist, skipping insert`);
       }
+      console.log(`[Notifications] ✅ Created ${result.created}, Updated ${result.updated} summaries`);
     }
 
-    // ==================== Send emails (Admin + Users) ====================
-    if (allNotifications.length > 0) {
-      const emailResult = await sendUserSpecificEmails(allNotifications, client);
+    // ==================== Send emails ====================
+    if (allItems.length > 0) {
+      const emailResult = await sendUserSpecificEmails(userDataMap, allItems, client);
       
       if (emailResult.adminSent || emailResult.usersSent > 0) {
         result.emailsSent = (emailResult.adminSent ? 1 : 0) + emailResult.usersSent;
         
-        // Mark notifications as email_sent
-        const referenceIds = allNotifications.map((n) => n.reference_id);
-        await client
-          .from("notifications")
-          .update({ email_sent: true, email_sent_at: new Date().toISOString() })
-          .in("reference_id", referenceIds);
-          
+        // Mark summaries as email_sent
+        for (const userId of userDataMap.keys()) {
+          await client
+            .from("notification_summaries")
+            .update({ email_sent: true, email_sent_at: new Date().toISOString() })
+            .eq("user_id", userId)
+            .eq("date", todayStr);
+        }
+        
         console.log(`[Notifications] ✅ Emails sent: Admin=${emailResult.adminSent}, Users=${emailResult.usersSent}`);
       }
       
@@ -490,6 +506,10 @@ export async function checkAndGenerateNotifications(): Promise<NotificationResul
   } catch (err) {
     result.success = false;
     result.errors.push(err instanceof Error ? err.message : "Unknown error");
+  }
+
+  if (result.errors.length > 0) {
+    result.success = false;
   }
 
   return result;

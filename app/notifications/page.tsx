@@ -6,88 +6,75 @@ import {
   AlertTriangle,
   Calendar,
   Clock,
-  Filter,
-  Search,
-  Eye,
   CheckCircle,
   CreditCard,
+  Mail,
+  MailOpen,
+  ChevronRight,
+  Filter,
+  Sparkles,
+  TrendingUp,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { DataTable } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/lib/auth-context";
-import { useCondos, useTenants, useNotifications } from "@/lib/hooks/use-queries";
+import { useNotifications } from "@/lib/hooks/use-queries";
+import type { NotificationSummary, NotificationItem } from "@/lib/supabase";
 
 export default function NotificationsPage() {
   const { user } = useAuth();
-  const { notifications, loading, markAsRead, markAllAsRead, refetch } =
+  const { summaries, loading, markAsRead, markAllAsRead, refetch, unreadCount, totalItems } =
     useNotifications(user?.id);
-  const { condos } = useCondos(user?.id);
-  const { tenants } = useTenants(user?.id);
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear().toString()
   );
   const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedType, setSelectedType] = useState("");
-  const [selectedPriority, setSelectedPriority] = useState("");
   const [isRead, setIsRead] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedNotification, setSelectedNotification] = useState<any | null>(
-    null
-  );
+  const [selectedSummary, setSelectedSummary] = useState<NotificationSummary | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Generate year options (current year and 2 years back)
+  // Generate year options
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 3 }, (_, i) => currentYear - i);
 
   // Month options in Thai
   const monthOptions = [
-    { value: "1", label: "มกราคม" },
-    { value: "2", label: "กุมภาพันธ์" },
-    { value: "3", label: "มีนาคม" },
-    { value: "4", label: "เมษายน" },
-    { value: "5", label: "พฤษภาคม" },
-    { value: "6", label: "มิถุนายน" },
-    { value: "7", label: "กรกฎาคม" },
-    { value: "8", label: "สิงหาคม" },
-    { value: "9", label: "กันยายน" },
-    { value: "10", label: "ตุลาคม" },
-    { value: "11", label: "พฤศจิกายน" },
-    { value: "12", label: "ธันวาคม" },
+    { value: "1", label: "ม.ค." },
+    { value: "2", label: "ก.พ." },
+    { value: "3", label: "มี.ค." },
+    { value: "4", label: "เม.ย." },
+    { value: "5", label: "พ.ค." },
+    { value: "6", label: "มิ.ย." },
+    { value: "7", label: "ก.ค." },
+    { value: "8", label: "ส.ค." },
+    { value: "9", label: "ก.ย." },
+    { value: "10", label: "ต.ค." },
+    { value: "11", label: "พ.ย." },
+    { value: "12", label: "ธ.ค." },
   ];
 
-  // Filter notifications
-  const filteredNotifications = notifications?.filter((notification: any) => {
-    const notificationDate = new Date(notification.date);
-    const notificationYear = notificationDate.getFullYear().toString();
-    const notificationMonth = (notificationDate.getMonth() + 1).toString();
+  // Filter summaries
+  const filteredSummaries = summaries?.filter((summary) => {
+    const summaryDate = new Date(summary.date);
+    const summaryYear = summaryDate.getFullYear().toString();
+    const summaryMonth = (summaryDate.getMonth() + 1).toString();
 
-    const yearMatch = !selectedYear || notificationYear === selectedYear;
-    const monthMatch = !selectedMonth || notificationMonth === selectedMonth;
-    const typeMatch = !selectedType || notification.type === selectedType;
-    const priorityMatch =
-      !selectedPriority || notification.priority === selectedPriority;
+    const yearMatch = !selectedYear || summaryYear === selectedYear;
+    const monthMatch = !selectedMonth || summaryMonth === selectedMonth;
     const readMatch =
       !isRead ||
-      (isRead === "read" ? notification.is_read : !notification.is_read);
-    const searchMatch =
-      !searchTerm ||
-      notification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      notification.message.toLowerCase().includes(searchTerm.toLowerCase());
+      (isRead === "read" ? summary.is_read : !summary.is_read);
 
-    return (
-      yearMatch &&
-      monthMatch &&
-      typeMatch &&
-      priorityMatch &&
-      readMatch &&
-      searchMatch
-    );
+    return yearMatch && monthMatch && readMatch;
   });
 
-  const handleMarkAsRead = async (notificationId: string) => {
-    await markAsRead(notificationId);
+  const handleViewDetails = async (summary: NotificationSummary) => {
+    setSelectedSummary(summary);
+    setIsModalOpen(true);
+    if (!summary.is_read) {
+      await markAsRead(summary.id);
+    }
   };
 
   const handleMarkAllAsRead = async () => {
@@ -95,429 +82,382 @@ export default function NotificationsPage() {
   };
 
   const getTypeIcon = (type: string) => {
+    const iconClass = "h-4 w-4";
     switch (type) {
       case "rent_overdue":
-        return <AlertTriangle className="h-4 w-4 text-red-500" />;
+        return <AlertTriangle className={`${iconClass} text-red-400`} />;
       case "rent_due":
-        return <Calendar className="h-4 w-4 text-yellow-500" />;
+        return <Calendar className={`${iconClass} text-amber-400`} />;
       case "contract_expiring":
-        return <Clock className="h-4 w-4 text-orange-500" />;
+        return <Clock className={`${iconClass} text-orange-400`} />;
       case "payment_received":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className={`${iconClass} text-emerald-400`} />;
       case "condo_payment_due":
-        return <CreditCard className="h-4 w-4 text-purple-500" />;
-      case "maintenance":
-        return <AlertTriangle className="h-4 w-4 text-blue-500" />;
+        return <CreditCard className={`${iconClass} text-violet-400`} />;
       default:
-        return <Bell className="h-4 w-4 text-gray-500" />;
+        return <Bell className={`${iconClass} text-gray-400`} />;
     }
   };
 
-  const getTypeText = (type: string) => {
-    switch (type) {
-      case "rent_overdue":
-        return "ค่าเช่าเกินกำหนด";
-      case "rent_due":
-        return "ค่าเช่าครบกำหนด";
-      case "contract_expiring":
-        return "สัญญาใกล้หมดอายุ";
-      case "payment_received":
-        return "ได้รับการชำระเงิน";
-      case "condo_payment_due":
-        return "ถึงกำหนดชำระค่าคอนโด";
-      case "maintenance":
-        return "แจ้งซ่อมบำรุง";
-      default:
-        return "การแจ้งเตือน";
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
+  const getPriorityStyles = (priority: string) => {
     switch (priority) {
       case "high":
-        return "bg-red-900 text-red-300";
+        return "border-l-red-500 bg-gradient-to-r from-red-500/10 to-transparent";
       case "medium":
-        return "bg-yellow-900 text-yellow-300";
+        return "border-l-amber-500 bg-gradient-to-r from-amber-500/10 to-transparent";
       case "low":
-        return "bg-green-900 text-green-300";
+        return "border-l-emerald-500 bg-gradient-to-r from-emerald-500/10 to-transparent";
       default:
-        return "bg-gray-900 text-gray-300";
+        return "border-l-gray-500 bg-gradient-to-r from-gray-500/10 to-transparent";
     }
   };
 
-  const getPriorityText = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "สูง";
-      case "medium":
-        return "ปานกลาง";
-      case "low":
-        return "ต่ำ";
-      default:
-        return "ปกติ";
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return "วันนี้";
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return "เมื่อวาน";
     }
+    return date.toLocaleDateString("th-TH", {
+      day: "numeric",
+      month: "short",
+    });
   };
 
-  const columns = [
-    {
-      key: "type",
-      header: "ประเภท",
-      render: (notification: any) => (
-        <div className="flex items-center">
-          {getTypeIcon(notification.type)}
-          <span className="ml-2">{getTypeText(notification.type)}</span>
-        </div>
-      ),
-    },
-    {
-      key: "title",
-      header: "หัวข้อ",
-      render: (notification: any) => (
-        <div
-          className={`font-medium ${
-            !notification.is_read ? "text-white" : "text-gray-300"
-          }`}
-        >
-          {notification.title}
-          {!notification.is_read && (
-            <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full inline-block"></span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "message",
-      header: "ข้อความ",
-      render: (notification: any) => (
-        <div
-          className="max-w-md truncate text-gray-300"
-          title={notification.message}
-        >
-          {notification.message}
-          {notification.tenant?.full_name &&
-            ` (ผู้เช่า: ${notification.tenant.full_name})`}
-          {notification.condo?.room_number &&
-            ` (ห้อง: ${notification.condo.room_number})`}
-        </div>
-      ),
-    },
-    {
-      key: "priority",
-      header: "ความสำคัญ",
-      render: (notification: any) => (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-            notification.priority
-          )}`}
-        >
-          {getPriorityText(notification.priority)}
-        </span>
-      ),
-    },
-    {
-      key: "date",
-      header: "วันที่",
-      render: (notification: any) => (
-        <div className="text-sm">
-          <div>{new Date(notification.date).toLocaleDateString("th-TH")}</div>
-          <div className="text-gray-400">
-            {new Date(notification.date).toLocaleTimeString("th-TH")}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "actions",
-      header: "การดำเนินการ",
-      render: (notification: any) => (
-        <div className="flex space-x-2">
-          <button
-            onClick={() => {
-              setSelectedNotification(notification);
-              setIsModalOpen(true);
-              if (!notification.is_read) {
-                handleMarkAsRead(notification.id);
-              }
-            }}
-            className="text-blue-400 hover:text-blue-300"
-            title="ดูรายละเอียด"
-          >
-            <Eye className="h-4 w-4" />
-          </button>
-          {!notification.is_read && (
-            <button
-              onClick={() => handleMarkAsRead(notification.id)}
-              className="text-green-400 hover:text-green-300"
-              title="ทำเครื่องหมายว่าอ่านแล้ว"
-            >
-              <CheckCircle className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      ),
-    },
-  ];
+  const formatFullDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString("th-TH", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
-  const unreadCount = notifications?.filter((n: any) => !n.is_read).length || 0;
+  // Group items by priority
+  const groupItemsByPriority = (items: NotificationItem[]) => {
+    const high = items.filter((i) => i.priority === "high");
+    const medium = items.filter((i) => i.priority === "medium");
+    const low = items.filter((i) => i.priority === "low");
+    return { high, medium, low };
+  };
+
+  // Calculate stats
+  const highPriorityCount = summaries?.reduce((sum, s) => sum + s.high_count, 0) || 0;
 
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-white flex items-center">
-              <Bell className="h-8 w-8 mr-3 text-green-500" />
-              การแจ้งเตือน
+        {/* Hero Header */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-violet-600/10 to-transparent border border-white/10 p-6">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className="relative">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-primary/20 rounded-xl">
+                    <Bell className="h-6 w-6 text-primary" />
+                  </div>
+                  <h1 className="text-2xl font-bold text-white">การแจ้งเตือน</h1>
+                </div>
+                <p className="text-gray-400">
+                  ติดตามการแจ้งเตือนและข้อมูลสำคัญของคุณ
+                </p>
+              </div>
               {unreadCount > 0 && (
-                <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                  {unreadCount}
-                </span>
+                <button
+                  onClick={handleMarkAllAsRead}
+                  className="px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2 font-medium"
+                >
+                  <MailOpen className="h-4 w-4" />
+                  อ่านทั้งหมด
+                </button>
               )}
-            </h1>
-            <p className="text-gray-400">จัดการการแจ้งเตือนและข้อความสำคัญ</p>
-          </div>
-          <button
-            onClick={handleMarkAllAsRead}
-            className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-            disabled={unreadCount === 0}
-          >
-            <CheckCircle className="h-4 w-4 mr-2" />
-            ทำเครื่องหมายทั้งหมดว่าอ่านแล้ว
-          </button>
-        </div>
+            </div>
 
-        {/* Filters */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-          <div className="flex items-center space-x-4 mb-4">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <span className="text-sm font-medium text-gray-300">ตัวกรอง:</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                ปี
-              </label>
+            {/* Filters */}
+            <div className="flex flex-wrap gap-3 mt-4">
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               >
-                <option value="">ทุกปี</option>
                 {yearOptions.map((year) => (
-                  <option key={year} value={year.toString()}>
+                  <option key={year} value={year} className="bg-gray-900">
                     {year + 543}
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                เดือน
-              </label>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               >
-                <option value="">ทุกเดือน</option>
+                <option value="" className="bg-gray-900">ทุกเดือน</option>
                 {monthOptions.map((month) => (
-                  <option key={month.value} value={month.value}>
+                  <option key={month.value} value={month.value} className="bg-gray-900">
                     {month.label}
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                ประเภท
-              </label>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">ทุกประเภท</option>
-                <option value="rent_overdue">ค่าเช่าเกินกำหนด</option>
-                <option value="rent_due">ค่าเช่าครบกำหนด</option>
-                <option value="contract_expiring">สัญญาใกล้หมดอายุ</option>
-                <option value="payment_received">ได้รับการชำระเงิน</option>
-                <option value="condo_payment_due">ถึงกำหนดชำระค่าคอนโด</option>
-                <option value="maintenance">แจ้งซ่อมบำรุง</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                ความสำคัญ
-              </label>
-              <select
-                value={selectedPriority}
-                onChange={(e) => setSelectedPriority(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">ทุกระดับ</option>
-                <option value="high">สูง</option>
-                <option value="medium">ปานกลาง</option>
-                <option value="low">ต่ำ</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                สถานะ
-              </label>
               <select
                 value={isRead}
                 onChange={(e) => setIsRead(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               >
-                <option value="">ทั้งหมด</option>
-                <option value="unread">ยังไม่อ่าน</option>
-                <option value="read">อ่านแล้ว</option>
+                <option value="" className="bg-gray-900">ทั้งหมด</option>
+                <option value="unread" className="bg-gray-900">ยังไม่อ่าน</option>
+                <option value="read" className="bg-gray-900">อ่านแล้ว</option>
               </select>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                ค้นหา
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="ค้นหา..."
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 text-sm text-gray-400">
-            พบ {filteredNotifications?.length} รายการ จากทั้งหมด{" "}
-            {notifications?.length} รายการ
           </div>
         </div>
 
-        {/* Notifications Table */}
-        <DataTable
-          data={filteredNotifications}
-          columns={columns}
-          loading={loading}
-          emptyMessage="ไม่พบการแจ้งเตือน"
-          itemsPerPage={10}
-        />
-
-        {/* Notification Detail Modal */}
-        <Modal
-          isOpen={isModalOpen}
-          onClose={() => {
-            setIsModalOpen(false);
-            setSelectedNotification(null);
-          }}
-          title="รายละเอียดการแจ้งเตือน"
-          size="lg"
-        >
-          {selectedNotification && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  {getTypeIcon(selectedNotification.type)}
-                  <span className="ml-2 text-lg font-medium text-white">
-                    {selectedNotification.title}
-                  </span>
-                </div>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-                    selectedNotification.priority
-                  )}`}
+        {/* Inbox List */}
+        <div className="bg-card/30 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
+            </div>
+          ) : filteredSummaries?.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+              <div className="p-4 bg-white/5 rounded-full mb-4">
+                <Sparkles className="h-8 w-8" />
+              </div>
+              <p className="text-lg font-medium text-white mb-1">ไม่มีการแจ้งเตือน</p>
+              <p className="text-sm">คุณไม่มีรายการแจ้งเตือนในขณะนี้</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/5">
+              {filteredSummaries?.map((summary, idx) => (
+                <div
+                  key={summary.id}
+                  onClick={() => handleViewDetails(summary)}
+                  className={`group relative flex items-center gap-4 p-4 cursor-pointer transition-all hover:bg-white/5 ${
+                    !summary.is_read ? "bg-primary/5" : ""
+                  }`}
+                  style={{ animationDelay: `${idx * 50}ms` }}
                 >
-                  {getPriorityText(selectedNotification.priority)}
-                </span>
-              </div>
+                  {/* Unread indicator */}
+                  {!summary.is_read && (
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full" />
+                  )}
 
-              <div className="bg-gray-700 rounded-lg p-4">
-                <p className="text-gray-300">{selectedNotification.message}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">
-                    ประเภท
-                  </label>
-                  <p className="text-white">
-                    {getTypeText(selectedNotification.type)}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">
-                    วันที่และเวลา
-                  </label>
-                  <p className="text-white">
-                    {new Date(selectedNotification.date).toLocaleDateString(
-                      "th-TH"
-                    )}{" "}
-                    {new Date(selectedNotification.date).toLocaleTimeString(
-                      "th-TH"
+                  {/* Icon */}
+                  <div
+                    className={`flex-shrink-0 p-3 rounded-xl transition-all ${
+                      !summary.is_read
+                        ? "bg-primary/20 text-primary"
+                        : "bg-white/5 text-gray-400 group-hover:bg-white/10"
+                    }`}
+                  >
+                    {!summary.is_read ? (
+                      <Mail className="h-5 w-5" />
+                    ) : (
+                      <MailOpen className="h-5 w-5" />
                     )}
-                  </p>
-                </div>
-              </div>
-
-              {selectedNotification.tenant_id && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300">
-                      ผู้เช่า
-                    </label>
-                    <p className="text-white">
-                      {selectedNotification.tenant?.full_name || "ไม่ทราบ"}
-                    </p>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300">
-                      ห้อง
-                    </label>
-                    <p className="text-white">
-                      {selectedNotification.condo
-                        ? `${selectedNotification.condo.name} (${selectedNotification.condo.room_number})`
-                        : "ไม่ทราบ"}
-                    </p>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`font-semibold ${!summary.is_read ? "text-white" : "text-gray-300"}`}>
+                        {formatDate(summary.date)}
+                      </span>
+                      {!summary.is_read && (
+                        <span className="px-2 py-0.5 bg-primary/20 text-primary text-xs font-medium rounded-full">
+                          ใหม่
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <Bell className="h-3.5 w-3.5" />
+                        {summary.total_count} รายการ
+                      </span>
+                      {summary.high_count > 0 && (
+                        <span className="flex items-center gap-1 text-red-400">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          {summary.high_count} สำคัญ
+                        </span>
+                      )}
+                      {summary.email_sent && (
+                        <span className="flex items-center gap-1 text-emerald-400">
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          ส่งเมลแล้ว
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
 
-              {selectedNotification.amount && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-300">
-                    จำนวนเงิน
-                  </label>
-                  <p className="text-white text-lg font-medium">
-                    ฿{selectedNotification.amount.toLocaleString()}
-                  </p>
+                  {/* Arrow */}
+                  <ChevronRight className="h-5 w-5 text-gray-500 group-hover:text-white transition-colors" />
                 </div>
-              )}
-
-              <div className="flex justify-end space-x-3 pt-4">
-                <button
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setSelectedNotification(null);
-                  }}
-                  className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
-                >
-                  ปิด
-                </button>
-              </div>
+              ))}
             </div>
           )}
-        </Modal>
+        </div>
       </div>
+
+      {/* Detail Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title=""
+        size="lg"
+      >
+        {selectedSummary && (
+          <div className="space-y-6">
+            {/* Modal Header */}
+            <div className="text-center pb-4 border-b border-white/10">
+              <div className="inline-flex p-3 bg-primary/20 rounded-2xl mb-3">
+                <Bell className="h-6 w-6 text-primary" />
+              </div>
+              <h2 className="text-xl font-bold text-white">
+                แจ้งเตือน{formatDate(selectedSummary.date) === "วันนี้" ? "วันนี้" : ""}
+              </h2>
+              <p className="text-gray-400 text-sm mt-1">
+                {formatFullDate(selectedSummary.date)}
+              </p>
+            </div>
+
+            {/* Summary Stats */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white/5 rounded-xl p-3 text-center border border-white/5">
+                <div className="text-xl font-bold text-white">
+                  {selectedSummary.total_count}
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">ทั้งหมด</div>
+              </div>
+              <div className="bg-red-500/10 rounded-xl p-3 text-center border border-red-500/20">
+                <div className="text-xl font-bold text-red-400">
+                  {selectedSummary.high_count}
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">สำคัญ</div>
+              </div>
+              <div className="bg-amber-500/10 rounded-xl p-3 text-center border border-amber-500/20">
+                <div className="text-xl font-bold text-amber-400">
+                  {selectedSummary.medium_count}
+                </div>
+                <div className="text-xs text-gray-400 mt-0.5">ปานกลาง</div>
+              </div>
+            </div>
+
+            {/* Grouped Items */}
+            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+              {(() => {
+                const grouped = groupItemsByPriority(selectedSummary.items || []);
+                return (
+                  <>
+                    {/* High Priority */}
+                    {grouped.high.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-1 bg-red-500/20 rounded">
+                            <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                          </div>
+                          <span className="text-sm font-medium text-red-400">
+                            สำคัญสูง ({grouped.high.length})
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {grouped.high.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className={`border-l-4 p-3 rounded-lg ${getPriorityStyles(item.priority)}`}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                {getTypeIcon(item.type)}
+                                <span className="font-medium text-white text-sm">{item.title}</span>
+                              </div>
+                              <p className="text-xs text-gray-400 leading-relaxed">{item.message}</p>
+                              {item.amount && (
+                                <div className="mt-2 inline-flex items-center px-2 py-1 bg-white/5 rounded text-xs font-medium text-white">
+                                  ฿{item.amount.toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Medium Priority */}
+                    {grouped.medium.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-1 bg-amber-500/20 rounded">
+                            <Calendar className="h-3.5 w-3.5 text-amber-400" />
+                          </div>
+                          <span className="text-sm font-medium text-amber-400">
+                            ปานกลาง ({grouped.medium.length})
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {grouped.medium.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className={`border-l-4 p-3 rounded-lg ${getPriorityStyles(item.priority)}`}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                {getTypeIcon(item.type)}
+                                <span className="font-medium text-white text-sm">{item.title}</span>
+                              </div>
+                              <p className="text-xs text-gray-400 leading-relaxed">{item.message}</p>
+                              {item.amount && (
+                                <div className="mt-2 inline-flex items-center px-2 py-1 bg-white/5 rounded text-xs font-medium text-white">
+                                  ฿{item.amount.toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Low Priority */}
+                    {grouped.low.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-1 bg-emerald-500/20 rounded">
+                            <Bell className="h-3.5 w-3.5 text-emerald-400" />
+                          </div>
+                          <span className="text-sm font-medium text-emerald-400">
+                            ทั่วไป ({grouped.low.length})
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {grouped.low.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className={`border-l-4 p-3 rounded-lg ${getPriorityStyles(item.priority)}`}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                {getTypeIcon(item.type)}
+                                <span className="font-medium text-white text-sm">{item.title}</span>
+                              </div>
+                              <p className="text-xs text-gray-400 leading-relaxed">{item.message}</p>
+                              {item.amount && (
+                                <div className="mt-2 inline-flex items-center px-2 py-1 bg-white/5 rounded text-xs font-medium text-white">
+                                  ฿{item.amount.toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+      </Modal>
     </MainLayout>
   );
 }
