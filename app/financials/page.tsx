@@ -78,6 +78,9 @@ export default function FinancialsPage() {
     currentYear.toString()
   );
   const [selectedMonth, setSelectedMonth] = useState<string>("");
+  // Category filter states for each table
+  const [selectedIncomeCategory, setSelectedIncomeCategory] = useState<string>("");
+  const [selectedExpenseCategory, setSelectedExpenseCategory] = useState<string>("");
   const [notification, setNotification] = useState<{
     message: string;
     type: "success" | "error";
@@ -284,9 +287,11 @@ export default function FinancialsPage() {
         (recordDate.getMonth() + 1).toString() === selectedMonth;
       const condoMatch =
         !selectedCondoFilter || r.condo_id === selectedCondoFilter;
-      return yearMatch && monthMatch && condoMatch;
+      const categoryMatch =
+        !selectedIncomeCategory || r.category === selectedIncomeCategory;
+      return yearMatch && monthMatch && condoMatch && categoryMatch;
     });
-  }, [incomeRecords, selectedCondoFilter, selectedYear, selectedMonth]);
+  }, [incomeRecords, selectedCondoFilter, selectedYear, selectedMonth, selectedIncomeCategory]);
 
   const filteredExpenseRecords = useMemo(() => {
     return expenseRecords.filter((r) => {
@@ -299,9 +304,11 @@ export default function FinancialsPage() {
         (recordDate.getMonth() + 1).toString() === selectedMonth;
       const condoMatch =
         !selectedCondoFilter || r.condo_id === selectedCondoFilter;
-      return yearMatch && monthMatch && condoMatch;
+      const categoryMatch =
+        !selectedExpenseCategory || r.category === selectedExpenseCategory;
+      return yearMatch && monthMatch && condoMatch && categoryMatch;
     });
-  }, [expenseRecords, selectedCondoFilter, selectedYear, selectedMonth]);
+  }, [expenseRecords, selectedCondoFilter, selectedYear, selectedMonth, selectedExpenseCategory]);
 
   // Calculate totals based on filtered records
   const totalIncome = filteredIncomeRecords.reduce(
@@ -663,16 +670,20 @@ export default function FinancialsPage() {
   const incomeCategories = [
     "ค่าเช่า",
     "ค่าที่จอดรถ",
-    "ค่าประกัน",
+    "ค่าประกันห้อง",
+    "ค่าส่วนกลาง",
     "ค่าปรับ",
     "อื่นๆ",
   ];
   const expenseCategories = [
     "ค่าบำรุงรักษา",
-    "ตกแต่งห้อง",
+    "ค่าส่วนกลาง",
+    "ค่าตกแต่งห้อง",
     "ค่าน้ำ/ไฟ",
-    "ค่าประกัน",
+    "ค่าประกันห้อง",
+    "ค่าประกันภัย",
     "ค่านายหน้า",
+    "ค่าภาษี",
     "อื่นๆ",
   ];
 
@@ -797,9 +808,26 @@ export default function FinancialsPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-white">รายการรายรับ</h2>
-            <span className="text-sm text-gray-400">
-              {filteredIncomeRecords.length} รายการ
-            </span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-400">หมวดหมู่:</label>
+                <select
+                  value={selectedIncomeCategory}
+                  onChange={(e) => setSelectedIncomeCategory(e.target.value)}
+                  className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">ทั้งหมด</option>
+                  {incomeCategories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <span className="text-sm text-gray-400">
+                {filteredIncomeRecords.length} รายการ
+              </span>
+            </div>
           </div>
           <DataTable
             data={filteredIncomeRecords}
@@ -814,9 +842,26 @@ export default function FinancialsPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-white">รายการรายจ่าย</h2>
-            <span className="text-sm text-gray-400">
-              {filteredExpenseRecords.length} รายการ
-            </span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-400">หมวดหมู่:</label>
+                <select
+                  value={selectedExpenseCategory}
+                  onChange={(e) => setSelectedExpenseCategory(e.target.value)}
+                  className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">ทั้งหมด</option>
+                  {expenseCategories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <span className="text-sm text-gray-400">
+                {filteredExpenseRecords.length} รายการ
+              </span>
+            </div>
           </div>
           <DataTable
             data={filteredExpenseRecords}

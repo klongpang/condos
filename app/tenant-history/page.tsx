@@ -358,6 +358,20 @@ export default function TenantHistoryPage() {
                           </span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-500">จำนวนเดือน</span>
+                          <span className="text-white font-medium">
+                            {(() => {
+                              const start = new Date(selectedHistory.rental_start);
+                              const end = new Date(selectedHistory.moved_out_at);
+                              const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+                              const days = end.getDate() - start.getDate();
+                              // ปัดขึ้นถ้ามีเศษวันมากกว่า 0
+                              const totalMonths = days > 0 ? months + 1 : months;
+                              return `${totalMonths} เดือน`;
+                            })()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
                           <span className="text-gray-500">ค่าเช่า/เดือน</span>
                           <span className="text-white font-medium bg-green-900/20 text-green-400 px-2 py-1 rounded">฿{selectedHistory.monthly_rent.toLocaleString()}</span>
                         </div>

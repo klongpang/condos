@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react"
 import { MainLayout } from "@/components/layout/main-layout"
 import { useAuth } from "@/lib/auth-context"
-import { useCondos, useRentPayments, useFinancialRecords } from "@/lib/hooks/use-queries"
+import { useCondos, useRentPayments, useFinancialRecords, useTenants } from "@/lib/hooks/use-queries"
 import {
   BarChart,
   Bar,
@@ -19,14 +19,16 @@ import {
 } from "recharts"
 import { format } from "date-fns"
 import { th } from "date-fns/locale"
-import { Filter, DollarSign, TrendingUp, TrendingDown } from "lucide-react" // Import new icons
-import { StatsCard } from "@/components/ui/stats-card" // Import StatsCard
+import { Filter, DollarSign, TrendingUp, TrendingDown, Wallet, BarChart3 } from "lucide-react"
+import { StatsCard } from "@/components/ui/stats-card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function ReportsPage() {
   const { user } = useAuth()
   const { incomeRecords, expenseRecords, loading: financialsLoading } = useFinancialRecords(user?.id)
   const { payments, loading: paymentsLoading } = useRentPayments(user?.id)
   const { condos, loading: condosLoading } = useCondos(user?.id)
+  const { tenants, loading: tenantsLoading } = useTenants(user?.id)
 
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString())
   const [selectedMonth, setSelectedMonth] = useState<string>("all") // New state for month filter
@@ -89,10 +91,13 @@ export default function ReportsPage() {
   const monthlyFinancialData = useMemo(() => {
     const dataMap = new Map<string, { name: string; income: number; expense: number }>()
 
+    // Use current year for month labels when "all" is selected
+    const yearForLabels = selectedYear === "all" ? new Date().getFullYear() : Number.parseInt(selectedYear)
+
     // Initialize dataMap with all months for the selected year
     for (let i = 0; i < 12; i++) {
       const monthValue = (i + 1).toString().padStart(2, "0")
-      const monthName = format(new Date(Number.parseInt(selectedYear), i, 1), "MMMM", { locale: th })
+      const monthName = format(new Date(yearForLabels, i, 1), "MMMM", { locale: th })
       dataMap.set(monthValue, { name: monthName, income: 0, expense: 0 })
     }
 
@@ -136,7 +141,7 @@ export default function ReportsPage() {
       { name: "ชำระแล้ว", value: statusCounts.paid, color: "#22c55e" }, // green-500
       { name: "ยังไม่ชำระ", value: statusCounts.unpaid, color: "#eab308" }, // yellow-500
       { name: "เกินกำหนด", value: statusCounts.overdue, color: "#ef4444" }, // red-500
-    ]
+    ].filter((item) => item.value > 0) // กรองรายการที่มีค่า 0 ออก
   }, [filteredPayments])
 
   // Income by Category Data for Pie Chart
@@ -184,6 +189,34 @@ export default function ReportsPage() {
   const totalExpenses = filteredFinancialRecords.expense.reduce((sum, record) => sum + record.amount, 0)
   const netIncome = totalIncome - totalExpenses
 
+  // Installment vs Rent Analysis - เงินออกเพิ่มต่อเดือน
+  const installmentAnalysis = useMemo(() => {
+    return condos.map((condo) => {
+      const activeTenant = tenants.find(
+        (t) => t.condo_id === condo.id && t.is_active
+      );
+      const installment = condo.installment_amount || 0;
+      const rent = activeTenant?.monthly_rent || 0;
+      const difference = installment - rent;
+      
+      return {
+        condoId: condo.id,
+        condoName: condo.name,
+        roomNumber: condo.room_number,
+        installment,
+        rent,
+        difference,
+        hasTenant: !!activeTenant,
+        tenantName: activeTenant?.full_name || "-",
+      };
+    });
+  }, [condos, tenants]);
+
+  // Summary totals
+  const totalInstallment = installmentAnalysis.reduce((sum, item) => sum + item.installment, 0);
+  const totalRent = installmentAnalysis.reduce((sum, item) => sum + item.rent, 0);
+  const totalDifference = totalInstallment - totalRent;
+
   // Colors for Pie Charts (can be expanded)
   const PIE_COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ffc658", "#a4de6c"]
 
@@ -196,88 +229,110 @@ export default function ReportsPage() {
           <p className="text-gray-400">ภาพรวมการเงินและสถานะการชำระค่าเช่า</p>
         </div>
 
-        {/* Filters */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-wrap items-center gap-4">
-          <Filter className="h-5 w-5 text-gray-400" />
-          <div>
-            <label className="text-sm font-medium text-gray-300 mr-2">ปี:</label>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        {/* Tabs for different report sections */}
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-gray-800 p-1 border border-gray-600 rounded-lg mb-6">
+            <TabsTrigger 
+              value="overview"
+              className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              {availableYears.length > 0 ? (
-                availableYears.map((year) => (
-                  <option key={year} value={year.toString()}>
-                    {year + 543}
-                  </option>
-                ))
-              ) : (
-                <option value={new Date().getFullYear().toString()}>{new Date().getFullYear() + 543}</option>
-              )}
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-300 mr-2">เดือน:</label>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              <BarChart3 className="h-4 w-4" />
+              ภาพรวม
+            </TabsTrigger>
+            <TabsTrigger 
+              value="analysis"
+              className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              <option value="all">ทั้งหมด</option>
-              {monthOptions.map((month) => (
-                <option key={month.value} value={month.value}>
-                  {month.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-300 mr-2">คอนโด:</label>
-            <select
-              value={selectedCondoFilter}
-              onChange={(e) => setSelectedCondoFilter(e.target.value)}
-              className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              <option value="all">ทั้งหมด</option>
-              {condos.map((condo) => (
-                <option key={condo.id} value={condo.id}>
-                  {condo.name} ({condo.room_number})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+              <Wallet className="h-4 w-4" />
+              วิเคราะห์
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Summary Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <StatsCard
-            title="รายรับรวม"
-            value={`฿${totalIncome.toLocaleString()}`}
-            icon={TrendingUp}
-            className="bg-green-900/20 border-green-700"
-            loading={financialsLoading}
-          />
-          <StatsCard
-            title="รายจ่ายรวม"
-            value={`฿${totalExpenses.toLocaleString()}`}
-            icon={TrendingDown}
-            className="bg-red-900/20 border-red-700"
-            loading={financialsLoading}
-          />
-          <StatsCard
-            title="กำไรสุทธิ"
-            value={`฿${netIncome.toLocaleString()}`}
-            icon={DollarSign}
-            className={netIncome >= 0 ? "bg-blue-900/20 border-blue-700" : "bg-red-900/20 border-red-700"}
-            loading={financialsLoading}
-          />
-        </div>
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            {/* Filters - inside Overview tab */}
+            <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-wrap items-center gap-4">
+              <Filter className="h-5 w-5 text-gray-400" />
+              <div>
+                <label className="text-sm font-medium text-gray-300 mr-2">ปี:</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="all">ทุกปี</option>
+                  {availableYears.length > 0 ? (
+                    availableYears.map((year) => (
+                      <option key={year} value={year.toString()}>
+                        {year + 543}
+                      </option>
+                    ))
+                  ) : (
+                    <option value={new Date().getFullYear().toString()}>{new Date().getFullYear() + 543}</option>
+                  )}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-300 mr-2">เดือน:</label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="all">ทั้งหมด</option>
+                  {monthOptions.map((month) => (
+                    <option key={month.value} value={month.value}>
+                      {month.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-300 mr-2">คอนโด:</label>
+                <select
+                  value={selectedCondoFilter}
+                  onChange={(e) => setSelectedCondoFilter(e.target.value)}
+                  className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="all">ทั้งหมด</option>
+                  {condos.map((condo) => (
+                    <option key={condo.id} value={condo.id}>
+                      {condo.name} ({condo.room_number})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Summary Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <StatsCard
+                title="รายรับรวม"
+                value={`฿${totalIncome.toLocaleString()}`}
+                icon={TrendingUp}
+                className="bg-green-900/20 border-green-700"
+                loading={financialsLoading}
+              />
+              <StatsCard
+                title="รายจ่ายรวม"
+                value={`฿${totalExpenses.toLocaleString()}`}
+                icon={TrendingDown}
+                className="bg-red-900/20 border-red-700"
+                loading={financialsLoading}
+              />
+              <StatsCard
+                title="กำไรสุทธิ"
+                value={`฿${netIncome.toLocaleString()}`}
+                icon={DollarSign}
+                className={netIncome >= 0 ? "bg-blue-900/20 border-blue-700" : "bg-red-900/20 border-red-700"}
+                loading={financialsLoading}
+              />
+            </div>
 
         {/* Monthly Financial Chart */}
         <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
           <h2 className="text-xl font-semibold text-white mb-4">
-            รายรับและรายจ่ายรายเดือน ({Number.parseInt(selectedYear) + 543})
+            รายรับและรายจ่ายรายเดือน {selectedYear === "all" ? "(ทุกปี)" : `(${Number.parseInt(selectedYear) + 543})`}
           </h2>
           {financialsLoading ? (
             <div className="text-gray-400 text-center py-10">กำลังโหลดข้อมูล...</div>
@@ -313,7 +368,7 @@ export default function ReportsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
             <h2 className="text-xl font-semibold text-white mb-4">
-              รายรับตามหมวดหมู่ ({Number.parseInt(selectedYear) + 543}
+              รายรับตามหมวดหมู่ ({selectedYear === "all" ? "ทุกปี" : Number.parseInt(selectedYear) + 543}
               {selectedMonth !== "all" && ` - ${monthOptions.find((m) => m.value === selectedMonth)?.label}`})
             </h2>
             {financialsLoading ? (
@@ -351,7 +406,7 @@ export default function ReportsPage() {
 
           <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
             <h2 className="text-xl font-semibold text-white mb-4">
-              รายจ่ายตามหมวดหมู่ ({Number.parseInt(selectedYear) + 543}
+              รายจ่ายตามหมวดหมู่ ({selectedYear === "all" ? "ทุกปี" : Number.parseInt(selectedYear) + 543}
               {selectedMonth !== "all" && ` - ${monthOptions.find((m) => m.value === selectedMonth)?.label}`})
             </h2>
             {financialsLoading ? (
@@ -391,7 +446,7 @@ export default function ReportsPage() {
         {/* Payment Status Pie Chart */}
         <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
           <h2 className="text-xl font-semibold text-white mb-4">
-            สถานะการชำระค่าเช่า ({Number.parseInt(selectedYear) + 543}
+            สถานะการชำระค่าเช่า ({selectedYear === "all" ? "ทุกปี" : Number.parseInt(selectedYear) + 543}
             {selectedMonth !== "all" && ` - ${monthOptions.find((m) => m.value === selectedMonth)?.label}`})
           </h2>
           {paymentsLoading ? (
@@ -426,6 +481,97 @@ export default function ReportsPage() {
             </ResponsiveContainer>
           )}
         </div>
+          </TabsContent>
+
+          {/* Analysis Tab */}
+          <TabsContent value="analysis" className="space-y-6">
+            {/* Installment vs Rent Analysis */}
+            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
+              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-orange-400" />
+                วิเคราะห์เงินออกเพิ่มต่อเดือน (ยอดผ่อน - ค่าเช่า)
+              </h2>
+              
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-gray-700/50 rounded-lg p-4 border border-gray-600">
+                  <div className="text-sm text-gray-400 mb-1">ยอดผ่อนรวม/เดือน</div>
+                  <div className="text-xl font-bold text-white">฿{totalInstallment.toLocaleString()}</div>
+                </div>
+                <div className="bg-gray-700/50 rounded-lg p-4 border border-gray-600">
+                  <div className="text-sm text-gray-400 mb-1">ค่าเช่ารวม/เดือน</div>
+                  <div className="text-xl font-bold text-green-400">฿{totalRent.toLocaleString()}</div>
+                </div>
+                <div className={`rounded-lg p-4 border ${totalDifference > 0 ? 'bg-red-900/30 border-red-700' : 'bg-green-900/30 border-green-700'}`}>
+                  <div className="text-sm text-gray-400 mb-1">เงินออกเพิ่มรวม/เดือน</div>
+                  <div className={`text-xl font-bold ${totalDifference > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    {totalDifference > 0 ? '+' : ''}฿{totalDifference.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Analysis Table */}
+              {condosLoading || tenantsLoading ? (
+                <div className="text-gray-400 text-center py-10">กำลังโหลดข้อมูล...</div>
+              ) : installmentAnalysis.length === 0 ? (
+                <div className="text-gray-400 text-center py-10">ไม่พบข้อมูลคอนโด</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-700/50 text-gray-300">
+                      <tr>
+                        <th className="px-4 py-3 text-left">คอนโด</th>
+                        <th className="px-4 py-3 text-left">ผู้เช่า</th>
+                        <th className="px-4 py-3 text-right">ยอดผ่อน/เดือน</th>
+                        <th className="px-4 py-3 text-right">ค่าเช่า/เดือน</th>
+                        <th className="px-4 py-3 text-right">เงินออกเพิ่ม/เดือน</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700">
+                      {installmentAnalysis.map((item) => (
+                        <tr key={item.condoId} className="hover:bg-gray-700/30 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-white">{item.condoName}</div>
+                            <div className="text-xs text-gray-400">ห้อง {item.roomNumber}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {item.hasTenant ? (
+                              <span className="text-green-400">{item.tenantName}</span>
+                            ) : (
+                              <span className="text-yellow-400">ว่าง</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right text-white">
+                            ฿{item.installment.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {item.hasTenant ? (
+                              <span className="text-green-400">฿{item.rent.toLocaleString()}</span>
+                            ) : (
+                              <span className="text-gray-500">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`font-medium ${item.difference > 0 ? 'text-red-400' : item.difference < 0 ? 'text-green-400' : 'text-gray-400'}`}>
+                              {item.difference > 0 ? '+' : ''}{item.difference === 0 ? '-' : `฿${item.difference.toLocaleString()}`}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Note */}
+              <div className="mt-4 text-xs text-gray-500 bg-gray-700/30 rounded-lg p-3">
+                <strong>หมายเหตุ:</strong> แสดงเฉพาะผู้เช่าที่กำลังเช่าอยู่ (Active) • 
+                <span className="text-red-400">สีแดง</span> = ต้องออกเงินเพิ่ม • 
+                <span className="text-green-400">สีเขียว</span> = มีกำไร/เหลือเก็บ
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </MainLayout>
   )
