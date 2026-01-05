@@ -15,6 +15,7 @@ import {
   X,
   AlertCircle,
   Info,
+  Loader2,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
@@ -136,6 +137,9 @@ export default function TenantsPage() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [documentType, setDocumentType] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isEndingContract, setIsEndingContract] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Installment modal states
   const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
@@ -203,6 +207,7 @@ export default function TenantsPage() {
       return;
     }
 
+    setIsSaving(true);
     const tenantData = {
       condo_id: formData.condo_id,
       full_name: formData.full_name,
@@ -249,6 +254,8 @@ export default function TenantsPage() {
         message: `เกิดข้อผิดพลาดในการบันทึกข้อมูล`,
         type: "error",
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -298,6 +305,7 @@ export default function TenantsPage() {
     e.preventDefault();
     if (!selectedTenantForEnd) return;
 
+    setIsEndingContract(true);
     try {
       // สร้างประวัติผู้เช่าใน tenant_history table
       const result = await endTenantContractAction(
@@ -331,6 +339,8 @@ export default function TenantsPage() {
     } catch (error: any) {
       console.error("Error ending contract:", error);
       setNotification({ message: `เกิดข้อผิดพลาดในการสิ้นสุดสัญญา: ${error.message}`, type: "error" });
+    } finally {
+      setIsEndingContract(false);
     }
   };
 
@@ -400,6 +410,7 @@ export default function TenantsPage() {
 
   const confirmTenantDocDelete = async () => {
     if (!tenantDocToDelete) return;
+    setIsDeleting(true);
     try {
       const result = await deleteDocumentAction(
         tenantDocToDelete.id,
@@ -414,6 +425,7 @@ export default function TenantsPage() {
       console.error("Error deleting document:", error);
       alert(`เกิดข้อผิดพลาดในการลบเอกสาร`);
     } finally {
+      setIsDeleting(false);
       setIsTenantDocDeleteModalOpen(false);
       setTenantDocToDelete(null);
     }
@@ -873,15 +885,24 @@ export default function TenantsPage() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ยกเลิก
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
-                {editingTenant ? "บันทึก" : "บันทึก"}
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    กำลังบันทึก...
+                  </>
+                ) : (
+                  "บันทึก"
+                )}
               </button>
             </div>
           </form>
@@ -972,15 +993,24 @@ export default function TenantsPage() {
                   setIsEndContractModalOpen(false);
                   setSelectedTenantForEnd(null);
                 }}
-                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+                disabled={isEndingContract}
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ยกเลิก
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                disabled={isEndingContract}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
-                บันทึก
+                {isEndingContract ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    กำลังดำเนินการ...
+                  </>
+                ) : (
+                  "บันทึก"
+                )}
               </button>
             </div>
           </form>
@@ -1115,6 +1145,8 @@ export default function TenantsPage() {
           confirmText="ยืนยัน"
           cancelText="ยกเลิก"
           type="danger"
+          isLoading={isDeleting}
+          loadingText="กำลังลบ..."
         />
 
         {/* Installment Schedule Modal */}

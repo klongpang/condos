@@ -15,6 +15,7 @@ import {
   Upload,
   File,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
@@ -113,6 +114,8 @@ export default function FinancialsPage() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [documentType, setDocumentType] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Delete confirmation state
   const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] =
@@ -181,6 +184,8 @@ export default function FinancialsPage() {
       return;
     }
 
+    setIsSaving(true);
+
     const recordData = {
       condo_id: formData.condo_id,
       tenant_id: formData.tenant_id || undefined,
@@ -217,6 +222,8 @@ export default function FinancialsPage() {
     } catch (error: any) {
       console.error(`Error saving ${recordType} record:`, error);
       setNotification({ message: `บันทึกเกิดข้อผิดพลาด: ${error.message || ""}`, type: "error" });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -413,6 +420,7 @@ export default function FinancialsPage() {
 
   const confirmDocDelete = async () => {
     if (!docToDelete) return;
+    setIsDeleting(true);
     try {
       const result = await deleteDocumentAction(
         docToDelete.id,
@@ -433,6 +441,7 @@ export default function FinancialsPage() {
         type: "error",
       });
     } finally {
+      setIsDeleting(false);
       setIsDocDeleteModalOpen(false);
       setDocToDelete(null);
     }
@@ -449,6 +458,7 @@ export default function FinancialsPage() {
 
   const confirmDeleteRecord = async () => {
     if (recordToDelete) {
+      setIsDeleting(true);
       try {
         if (recordToDelete.type === "income") {
           const result = await deleteIncomeAction(recordToDelete.id);
@@ -463,6 +473,7 @@ export default function FinancialsPage() {
         console.error("Error deleting record:", error);
         setNotification({ message: `การลบเกิดผิดพลาด: ${error.message || ""}`, type: "error" });
       } finally {
+        setIsDeleting(false);
         setIsDeleteConfirmModalOpen(false);
         setRecordToDelete(null);
       }
@@ -1074,15 +1085,24 @@ export default function FinancialsPage() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ยกเลิก
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-white rounded-lg transition-colors bg-green-600 hover:bg-green-700"
+                disabled={isSaving}
+                className="px-4 py-2 text-white rounded-lg transition-colors bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
-                {editingRecord ? "บันทึก" : "บันทึก"}
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    กำลังบันทึก...
+                  </>
+                ) : (
+                  "บันทึก"
+                )}
               </button>
             </div>
           </form>
@@ -1226,6 +1246,8 @@ export default function FinancialsPage() {
           confirmText="ยืนยัน"
           cancelText="ยกเลิก"
           type="danger"
+          isLoading={isDeleting}
+          loadingText="กำลังลบ..."
         />
 
         {/* Delete Confirmation Modal */}
@@ -1240,6 +1262,8 @@ export default function FinancialsPage() {
           confirmText="ยืนยัน"
           cancelText="ยกเลิก"
           type="danger"
+          isLoading={isDeleting}
+          loadingText="กำลังลบ..."
         />
       </div>
     </MainLayout>

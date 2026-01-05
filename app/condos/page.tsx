@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useState } from "react";
-import { Plus, Edit, FileText, Upload, File, X, Eye, AlertCircle } from "lucide-react";
+import { Plus, Edit, FileText, Upload, File, X, Eye, AlertCircle, Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
 import { Modal } from "@/components/ui/modal";
@@ -60,6 +60,8 @@ export default function CondosPage() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [documentType, setDocumentType] = useState<string>("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Notification state
   const [notification, setNotification] = useState<{
@@ -126,6 +128,7 @@ export default function CondosPage() {
       return;
     }
 
+    setIsSaving(true);
     const condoData = {
       ...formData,
       user_id: user?.id || "",
@@ -170,6 +173,8 @@ export default function CondosPage() {
         message: "เกิดข้อผิดพลาดในการบันทึกข้อมูลคอนโด",
         type: "error",
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -217,6 +222,7 @@ export default function CondosPage() {
 
   const confirmDelete = async () => {
     if (selectedCondo) {
+      setIsDeleting(true);
       try {
         const result = await updateCondoAction(selectedCondo.id, { is_active: false });
         if (result.success) {
@@ -235,6 +241,7 @@ export default function CondosPage() {
           type: "error",
         });
       } finally {
+        setIsDeleting(false);
         setSelectedCondo(null);
         setIsDeleteModalOpen(false);
       }
@@ -310,6 +317,7 @@ export default function CondosPage() {
 
   const confirmDocDelete = async () => {
     if (!docToDelete) return;
+    setIsDeleting(true);
     try {
       const result = await deleteDocumentAction(
         docToDelete.id,
@@ -322,6 +330,7 @@ export default function CondosPage() {
       console.error("Error deleting document:", error);
       setNotification({ message: `เกิดข้อผิดพลาดในการลบเอกสาร: ${error.message}`, type: "error" });
     } finally {
+      setIsDeleting(false);
       setIsDocDeleteModalOpen(false);
       setDocToDelete(null);
     }
@@ -681,16 +690,25 @@ export default function CondosPage() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ยกเลิก
               </button>
 
               <button
                 type="submit"
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
               >
-                {editingCondo ? "บันทึก" : "บันทึก"}
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    กำลังบันทึก...
+                  </>
+                ) : (
+                  "บันทึก"
+                )}
               </button>
             </div>
           </form>
@@ -826,6 +844,8 @@ export default function CondosPage() {
           confirmText="ยืนยัน"
           cancelText="ยกเลิก"
           type="danger"
+          isLoading={isDeleting}
+          loadingText="กำลังลบ..."
         />
 
         

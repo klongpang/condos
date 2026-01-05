@@ -16,6 +16,7 @@ import {
   Eye,
   Trash,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { DataTable } from "@/components/ui/data-table";
@@ -58,6 +59,8 @@ export default function RentPage() {
   );
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Document states for payment receipts
   const {
@@ -201,6 +204,7 @@ export default function RentPage() {
   // Add confirmDelete function
   const confirmDelete = async () => {
     if (paymentToDelete) {
+      setIsDeleting(true);
       try {
         const result = await deletePaymentAction(paymentToDelete.id);
         if (result.success) {
@@ -222,6 +226,7 @@ export default function RentPage() {
           type: "error",
         });
       } finally {
+        setIsDeleting(false);
         setIsDeleteModalOpen(false);
         setPaymentToDelete(null);
       }
@@ -335,6 +340,8 @@ export default function RentPage() {
       return;
     }
 
+    setIsSaving(true);
+
     const paymentData = {
       tenant_id: formData.tenant_id,
       amount: Number.parseFloat(formData.amount),
@@ -410,6 +417,7 @@ export default function RentPage() {
         type: "error",
       });
     } finally {
+      setIsSaving(false);
       setIsUploading(false);
       setIsCreatePaymentModalOpen(false);
       setIsEditPaymentModalOpen(false);
@@ -429,6 +437,7 @@ export default function RentPage() {
 
   const confirmRentDocDelete = async () => {
     if (!rentDocToDelete) return;
+    setIsDeleting(true);
     try {
       const result = await deleteDocumentAction(
         rentDocToDelete.id,
@@ -449,6 +458,7 @@ export default function RentPage() {
         type: "error",
       });
     } finally {
+      setIsDeleting(false);
       setIsRentDocDeleteModalOpen(false);
       setRentDocToDelete(null);
     }
@@ -1032,20 +1042,24 @@ export default function RentPage() {
                   setSelectedPayment(null);
                   setUploadedFiles([]);
                 }}
-                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+                disabled={isSaving || isUploading}
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 ยกเลิก
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isUploading}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                disabled={isSaving || isUploading}
               >
-                {isUploading
-                  ? "กำลังอัปโหลด..."
-                  : selectedPayment
-                  ? "บันทึก"
-                  : "บันทึก"}
+                {isSaving || isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {isUploading ? "กำลังอัปโหลด..." : "กำลังบันทึก..."}
+                  </>
+                ) : (
+                  "บันทึก"
+                )}
               </button>
             </div>
           </form>
@@ -1064,6 +1078,8 @@ export default function RentPage() {
           confirmText="ยืนยัน"
           cancelText="ยกเลิก"
           type="danger"
+          isLoading={isDeleting}
+          loadingText="กำลังลบ..."
         />
 
         {/* Delete Confirmation Modal */}
@@ -1080,6 +1096,8 @@ export default function RentPage() {
           confirmText="ยืนยัน"
           cancelText="ยกเลิก"
           type="danger"
+          isLoading={isDeleting}
+          loadingText="กำลังลบ..."
         />
       </div>
     </MainLayout>

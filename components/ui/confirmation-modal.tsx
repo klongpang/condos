@@ -1,5 +1,5 @@
 "use client";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, X, Loader2 } from "lucide-react";
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -10,6 +10,8 @@ interface ConfirmationModalProps {
   confirmText?: string;
   cancelText?: string;
   type?: "danger" | "warning" | "info";
+  isLoading?: boolean;
+  loadingText?: string;
 }
 
 export function ConfirmationModal({
@@ -21,6 +23,8 @@ export function ConfirmationModal({
   confirmText = "ยืนยัน",
   cancelText = "ยกเลิก",
   type = "danger",
+  isLoading = false,
+  loadingText = "กำลังดำเนินการ...",
 }: ConfirmationModalProps) {
   if (!isOpen) return null;
 
@@ -46,19 +50,26 @@ export function ConfirmationModal({
 
   const styles = getTypeStyles();
 
+  const handleClose = () => {
+    if (!isLoading) {
+      onClose();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4">
         <div
           className="fixed inset-0 bg-black bg-opacity-50"
-          onClick={onClose}
+          onClick={handleClose}
         />
         <div className="relative bg-gray-800 rounded-lg shadow-xl w-full max-w-md border border-gray-700">
           <div className="flex items-center justify-between p-6 border-b border-gray-700">
             <h3 className="text-lg font-medium text-white">{title}</h3>
             <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-white transition-colors"
+              onClick={handleClose}
+              disabled={isLoading}
+              className="text-gray-400 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <X className="h-5 w-5" />
             </button>
@@ -70,19 +81,25 @@ export function ConfirmationModal({
             </div>
             <div className="flex justify-end space-x-3">
               <button
-                onClick={onClose}
-                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+                onClick={handleClose}
+                disabled={isLoading}
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {cancelText}
               </button>
               <button
-                onClick={() => {
-                  onConfirm();
-                  onClose();
-                }}
-                className={`px-4 py-2 text-white rounded-lg transition-colors ${styles.button}`}
+                onClick={onConfirm}
+                disabled={isLoading}
+                className={`px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center ${styles.button}`}
               >
-                {confirmText}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {loadingText}
+                  </>
+                ) : (
+                  confirmText
+                )}
               </button>
             </div>
           </div>
