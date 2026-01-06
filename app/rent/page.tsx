@@ -25,6 +25,7 @@ import { Notification } from "@/components/ui/notification"; // Import Notificat
 // Import ConfirmationModal
 import { ConfirmationModal } from "@/components/ui/confirmation-modal";
 import { DocumentPreview } from "@/components/ui/document-preview"; // Import DocumentPreview
+import { ImageCompressInput } from "@/components/ui/image-compress-input"; // Import ImageCompressInput
 import { DatePicker } from "@/components/ui/date-picker";
 import { useCondos, useTenants, useRentPayments } from "@/lib/hooks/use-queries";
 import { useDocumentsDB } from "@/lib/hooks/use-database"; // Import useDocumentsDB
@@ -960,51 +961,15 @@ export default function RentPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                แนบรูปภาพการจ่าย
-              </label>
-              <div className="flex items-center gap-3 p-3 border border-dashed border-gray-600 rounded-lg bg-gray-800/50">
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  id="payment-file-upload"
-                  accept="image/*,.pdf"
-                />
-                <label
-                  htmlFor="payment-file-upload"
-                  className="inline-flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg cursor-pointer transition-colors shrink-0"
-                >
-                  <Upload className="h-4 w-4 mr-1.5" />
-                  เลือกไฟล์
-                </label>
-                <span className="text-xs text-gray-400">ลากไฟล์มาวางหรือคลิกเพื่อเลือก (JPG, PNG, PDF)</span>
-              </div>
-            </div>
-
-            {uploadedFiles.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {uploadedFiles.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-2 bg-gray-700 px-2.5 py-1.5 rounded-lg text-sm"
-                  >
-                    <File className="h-3.5 w-3.5 text-gray-400" />
-                    <span className="text-white truncate max-w-[120px]" title={file.name}>{file.name}</span>
-                    <span className="text-xs text-gray-400">({(file.size / 1024).toFixed(0)}KB)</span>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(index)}
-                      className="text-red-400 hover:text-red-300 ml-1"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <ImageCompressInput
+              files={uploadedFiles}
+              onFilesChange={setUploadedFiles}
+              label="แนบรูปภาพการจ่าย"
+              accept="image/*,.pdf"
+              maxSizeKB={100}
+              disabled={isSaving || isUploading}
+              showCompressInfo={true}
+            />
 
             {selectedPayment && paymentDocuments.length > 0 && (
               <div>
