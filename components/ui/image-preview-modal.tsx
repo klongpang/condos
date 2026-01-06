@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
-import { X, ZoomIn, ZoomOut, RotateCw, Eye } from "lucide-react";
+import React, { useState, useCallback, useEffect } from "react";
+import { X, ZoomIn, ZoomOut, RotateCw, Eye, Loader2 } from "lucide-react";
 import { Modal } from "./modal";
 
 interface ImagePreviewModalProps {
@@ -23,19 +23,25 @@ export function ImagePreviewModal({
   const [zoomLevel, setZoomLevel] = useState(0.8);
   const [rotation, setRotation] = useState(0);
 
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
   // Drag state for panning
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
-  // Reset state on open
+  // Reset state on open or URL change
   useEffect(() => {
     if (isOpen) {
       setZoomLevel(0.8); // Default zoom
       setRotation(0);
       setDragOffset({ x: 0, y: 0 });
+      setIsLoading(true);
+      setHasError(false);
     }
-  }, [isOpen]);
+  }, [isOpen, imageUrl]);
 
   // Zoom controls
   const handleZoomIn = useCallback(() => {
@@ -163,6 +169,35 @@ export function ImagePreviewModal({
             userSelect: "none",
           }}
         >
+          {/* Loading Overlay */}
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-20">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="h-10 w-10 text-green-500 animate-spin" />
+                <span className="text-gray-400 text-sm">กำลังโหลดภาพ...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Error State */}
+          {hasError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-20">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <X className="h-10 w-10 text-red-500" />
+                <span className="text-gray-400 text-sm">ไม่สามารถโหลดภาพได้</span>
+                <button
+                  onClick={() => {
+                    setHasError(false);
+                    setIsLoading(true);
+                  }}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors"
+                >
+                  ลองใหม่
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="w-full h-full flex items-center justify-center overflow-hidden">
             <div
               className={`relative w-full h-full flex items-center justify-center ${
@@ -173,12 +208,21 @@ export function ImagePreviewModal({
                 transformOrigin: "center",
               }}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imageUrl}
                 alt={imageName}
-                className="max-w-full max-h-full object-contain"
+                className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
+                  isLoading ? "opacity-0" : "opacity-100"
+                }`}
                 draggable={false}
                 style={{ pointerEvents: "none" }}
+                loading="eager"
+                onLoad={() => setIsLoading(false)}
+                onError={() => {
+                  setIsLoading(false);
+                  setHasError(true);
+                }}
               />
             </div>
           </div>
@@ -247,3 +291,4 @@ export function ImagePreviewModal({
     </Modal>
   );
 }
+

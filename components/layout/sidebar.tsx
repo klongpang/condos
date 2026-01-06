@@ -220,18 +220,21 @@ export function Sidebar({ onOpenProfileModal, isMobileOpen = false, onMobileClos
           title="ตั้งค่าโปรไฟล์"
         >
           <div className="relative">
-            <div className="h-9 w-9 rounded-full bg-gradient-to-r from-green-600 to-green-700 flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-green-500/30 transition-all duration-300 group-hover:ring-green-500/60">
+            <div className="h-9 w-9 rounded-full bg-gradient-to-r from-green-600 to-green-700 flex items-center justify-center overflow-hidden flex-shrink-0 ring-2 ring-green-500/30 transition-all duration-300 group-hover:ring-green-500/60 relative">
               {user?.profile_picture_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={user.profile_picture_url || "/placeholder.svg"}
+                  src={user.profile_picture_url}
                   alt="Profile"
                   className="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
                 />
               ) : (
                 <span className="text-sm font-medium text-white">{user?.full_name?.charAt(0) || "U"}</span>
               )}
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-gray-900 rounded-full"></div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-gray-900 rounded-full z-10"></div>
           </div>
           
           <div className={cn(

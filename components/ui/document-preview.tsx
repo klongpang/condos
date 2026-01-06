@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef } from "react";
-import { File, Eye, ZoomIn, ZoomOut, RotateCw, X } from "lucide-react";
+import { File, Eye, ZoomIn, ZoomOut, RotateCw, X, Loader2 } from "lucide-react";
 import { Modal } from "./modal";
 import type { Document } from "@/lib/supabase";
 
@@ -63,6 +63,10 @@ export function DocumentPreview({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Loading state for preview
+  const [isPreviewLoading, setIsPreviewLoading] = useState(true);
+  const [previewError, setPreviewError] = useState(false);
+
   
   // Check if file is an image
   const isImageFile = (fileName: string): boolean => {
@@ -79,6 +83,8 @@ export function DocumentPreview({
       setZoomLevel(1);
       setRotation(0);
       setDragOffset({ x: 0, y: 0 }); // Reset drag position
+      setIsPreviewLoading(true);
+      setPreviewError(false);
       setIsImagePreviewOpen(true);
     }
   };
@@ -351,6 +357,35 @@ export function DocumentPreview({
             }}
           >
             <div className="w-full h-full flex items-center justify-center overflow-hidden">
+              {/* Loading Overlay */}
+              {isPreviewLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-20">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-10 w-10 text-green-500 animate-spin" />
+                    <span className="text-gray-400 text-sm">กำลังโหลดภาพ...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Error State */}
+              {previewError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-80 z-20">
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <X className="h-10 w-10 text-red-500" />
+                    <span className="text-gray-400 text-sm">ไม่สามารถโหลดภาพได้</span>
+                    <button
+                      onClick={() => {
+                        setPreviewError(false);
+                        setIsPreviewLoading(true);
+                      }}
+                      className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg transition-colors"
+                    >
+                      ลองใหม่
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div
                 className={`relative w-full h-full flex items-center justify-center ${isDragging ? '' : 'transition-transform duration-200 ease-in-out'}`}
                 style={{
@@ -358,12 +393,20 @@ export function DocumentPreview({
                   transformOrigin: 'center',
                 }}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={previewImageUrl}
                   alt={previewImageName}
-                  className="max-w-full max-h-full object-contain"
+                  className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
+                    isPreviewLoading ? 'opacity-0' : 'opacity-100'
+                  }`}
                   draggable={false}
                   style={{ pointerEvents: 'none' }}
+                  onLoad={() => setIsPreviewLoading(false)}
+                  onError={() => {
+                    setIsPreviewLoading(false);
+                    setPreviewError(true);
+                  }}
                 />
               </div>
             </div>

@@ -97,10 +97,13 @@ export function ProfileSettingsModal({ isOpen, onClose, currentUser, onUpdateSuc
   <div className="relative">
     <div className="h-24 w-24 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden border border-gray-600">
       {profilePicturePreview ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={profilePicturePreview || "/placeholder.svg"}
           alt="Profile"
           className="h-full w-full object-cover"
+          loading="lazy"
+          decoding="async"
         />
       ) : (
         <User className="h-12 w-12 text-gray-400" />
