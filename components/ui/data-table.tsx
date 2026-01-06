@@ -7,6 +7,7 @@ interface Column<T> {
   key: keyof T | string
   header: string
   render?: (item: T) => ReactNode
+  hideOnMobile?: boolean
 }
 
 interface DataTableProps<T> {
@@ -128,7 +129,9 @@ export function DataTable<T extends Record<string, any>>({
               {columns.map((column, index) => (
                 <th
                   key={index}
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider"
+                  className={`px-3 py-2 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider ${
+                    column.hideOnMobile ? 'hidden sm:table-cell' : ''
+                  }`}
                 >
                   {column.header}
                 </th>
@@ -139,7 +142,12 @@ export function DataTable<T extends Record<string, any>>({
             {paginatedData.map((item, index) => (
               <tr key={index} className="hover:bg-gray-700 transition-colors">
                 {columns.map((column, colIndex) => (
-                  <td key={colIndex} className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                  <td 
+                    key={colIndex} 
+                    className={`px-3 py-3 sm:px-6 sm:py-4 text-xs sm:text-sm text-gray-300 ${
+                      column.hideOnMobile ? 'hidden sm:table-cell' : ''
+                    }`}
+                  >
                     {column.render ? column.render(item) : item[column.key as keyof T]}
                   </td>
                 ))}
@@ -148,25 +156,30 @@ export function DataTable<T extends Record<string, any>>({
           </tbody>
         </table>
       </div>
-      {/* แก้ไข: ลบเงื่อนไข totalPages > 1 ออก เพื่อให้แสดง pagination เสมอหากมีข้อมูลและ showPagination เป็น true */}
+      {/* Pagination */}
       {showPagination && (
-        <div className="px-4 py-3 flex items-center justify-between border-t border-gray-700 sm:px-6">
-          <div className="flex-1 flex justify-between sm:hidden">
+        <div className="px-3 py-2 sm:px-4 sm:py-3 flex items-center justify-between border-t border-gray-700">
+          {/* Mobile pagination */}
+          <div className="flex-1 flex justify-between items-center sm:hidden">
             <button
               onClick={() => setCurrentPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="relative inline-flex items-center px-4 py-2 border border-gray-700 text-sm font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700"
+              className="relative inline-flex items-center px-3 py-1.5 border border-gray-700 text-xs font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700 disabled:opacity-50"
             >
-              Previous
+              ก่อนหน้า
             </button>
+            <span className="text-xs text-gray-400">
+              {currentPage} / {totalPages || 1}
+            </span>
             <button
               onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={currentPage === totalPages} // เงื่อนไขนี้ยังคงถูกต้อง
-              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-700 text-sm font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700"
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="relative inline-flex items-center px-3 py-1.5 border border-gray-700 text-xs font-medium rounded-md text-gray-300 bg-gray-800 hover:bg-gray-700 disabled:opacity-50"
             >
-              Next
+              ถัดไป
             </button>
           </div>
+          {/* Desktop pagination */}
           <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-gray-400">
@@ -222,7 +235,7 @@ export function DataTable<T extends Record<string, any>>({
                 ))}
                 <button
                   onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages} // เงื่อนไขนี้ยังคงถูกต้อง
+                  disabled={currentPage === totalPages}
                   className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-700 bg-gray-800 text-sm font-medium text-gray-300 hover:bg-gray-700"
                 >
                   <span className="sr-only">Next</span>

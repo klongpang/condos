@@ -222,16 +222,16 @@ export default function ReportsPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-white">รายงานและสถิติ</h1>
-          <p className="text-gray-400">ภาพรวมการเงินและสถานะการชำระค่าเช่า</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white">รายงานและสถิติ</h1>
+          <p className="text-sm sm:text-base text-gray-400">ภาพรวมการเงินและสถานะการชำระค่าเช่า</p>
         </div>
 
         {/* Tabs for different report sections */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 bg-gray-800 p-1 border border-gray-600 rounded-lg mb-6">
+          <TabsList className="grid w-full grid-cols-2 bg-gray-800 p-1 border border-gray-600 rounded-lg mb-4 sm:mb-6">
             <TabsTrigger 
               value="overview"
               className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -249,16 +249,16 @@ export default function ReportsPage() {
           </TabsList>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
+          <TabsContent value="overview" className="space-y-4 sm:space-y-6">
             {/* Filters - inside Overview tab */}
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-wrap items-center gap-4">
-              <Filter className="h-5 w-5 text-gray-400" />
-              <div>
-                <label className="text-sm font-medium text-gray-300 mr-2">ปี:</label>
+            <div className="bg-gray-800 rounded-lg border border-gray-700 p-3 sm:p-4 flex flex-wrap items-center gap-2 sm:gap-4">
+              <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 hidden sm:block" />
+              <div className="flex items-center gap-1 sm:gap-2">
+                <label className="text-xs sm:text-sm font-medium text-gray-300">ปี:</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="px-2 py-1 sm:px-3 bg-gray-700 border border-gray-600 rounded text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="all">ทุกปี</option>
                   {availableYears.length > 0 ? (
@@ -272,12 +272,12 @@ export default function ReportsPage() {
                   )}
                 </select>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-300 mr-2">เดือน:</label>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <label className="text-xs sm:text-sm font-medium text-gray-300">เดือน:</label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="px-2 py-1 sm:px-3 bg-gray-700 border border-gray-600 rounded text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="all">ทั้งหมด</option>
                   {monthOptions.map((month) => (
@@ -287,12 +287,12 @@ export default function ReportsPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-300 mr-2">คอนโด:</label>
+              <div className="flex items-center gap-1 sm:gap-2">
+                <label className="text-xs sm:text-sm font-medium text-gray-300">คอนโด:</label>
                 <select
                   value={selectedCondoFilter}
                   onChange={(e) => setSelectedCondoFilter(e.target.value)}
-                  className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="px-2 py-1 sm:px-3 bg-gray-700 border border-gray-600 rounded text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500 max-w-[100px] sm:max-w-none"
                 >
                   <option value="all">ทั้งหมด</option>
                   {condos.map((condo) => (
@@ -305,7 +305,7 @@ export default function ReportsPage() {
             </div>
 
             {/* Summary Statistics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
               <StatsCard
                 title="รายรับรวม"
                 value={`฿${totalIncome.toLocaleString()}`}
@@ -330,14 +330,14 @@ export default function ReportsPage() {
             </div>
 
         {/* Monthly Financial Chart */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-          <h2 className="text-xl font-semibold text-white mb-4">
+        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 sm:p-6">
+          <h2 className="text-base sm:text-xl font-semibold text-white mb-3 sm:mb-4">
             รายรับและรายจ่ายรายเดือน {selectedYear === "all" ? "(ทุกปี)" : `(${Number.parseInt(selectedYear) + 543})`}
           </h2>
           {financialsLoading ? (
             <div className="text-gray-400 text-center py-10">กำลังโหลดข้อมูล...</div>
           ) : (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <BarChart
                 data={monthlyFinancialData}
                 margin={{
@@ -365,9 +365,9 @@ export default function ReportsPage() {
         </div>
 
         {/* Income and Expense by Category Pie Charts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-            <h2 className="text-xl font-semibold text-white mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 sm:p-6">
+            <h2 className="text-base sm:text-xl font-semibold text-white mb-3 sm:mb-4">
               รายรับตามหมวดหมู่ ({selectedYear === "all" ? "ทุกปี" : Number.parseInt(selectedYear) + 543}
               {selectedMonth !== "all" && ` - ${monthOptions.find((m) => m.value === selectedMonth)?.label}`})
             </h2>
@@ -404,8 +404,8 @@ export default function ReportsPage() {
             )}
           </div>
 
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-            <h2 className="text-xl font-semibold text-white mb-4">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 sm:p-6">
+            <h2 className="text-base sm:text-xl font-semibold text-white mb-3 sm:mb-4">
               รายจ่ายตามหมวดหมู่ ({selectedYear === "all" ? "ทุกปี" : Number.parseInt(selectedYear) + 543}
               {selectedMonth !== "all" && ` - ${monthOptions.find((m) => m.value === selectedMonth)?.label}`})
             </h2>
@@ -444,8 +444,8 @@ export default function ReportsPage() {
         </div>
 
         {/* Payment Status Pie Chart */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-          <h2 className="text-xl font-semibold text-white mb-4">
+        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 sm:p-6">
+          <h2 className="text-base sm:text-xl font-semibold text-white mb-3 sm:mb-4">
             สถานะการชำระค่าเช่า ({selectedYear === "all" ? "ทุกปี" : Number.parseInt(selectedYear) + 543}
             {selectedMonth !== "all" && ` - ${monthOptions.find((m) => m.value === selectedMonth)?.label}`})
           </h2>
@@ -484,27 +484,28 @@ export default function ReportsPage() {
           </TabsContent>
 
           {/* Analysis Tab */}
-          <TabsContent value="analysis" className="space-y-6">
+          <TabsContent value="analysis" className="space-y-4 sm:space-y-6">
             {/* Installment vs Rent Analysis */}
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-              <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                <Wallet className="h-5 w-5 text-orange-400" />
-                วิเคราะห์เงินออกเพิ่มต่อเดือน (ยอดผ่อน - ค่าเช่า)
+            <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 sm:p-6">
+              <h2 className="text-base sm:text-xl font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+                <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-orange-400" />
+                <span className="hidden sm:inline">วิเคราะห์เงินออกเพิ่มต่อเดือน (ยอดผ่อน - ค่าเช่า)</span>
+                <span className="sm:hidden">เงินออกเพิ่ม/เดือน</span>
               </h2>
               
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-gray-700/50 rounded-lg p-4 border border-gray-600">
-                  <div className="text-sm text-gray-400 mb-1">ยอดผ่อนรวม/เดือน</div>
-                  <div className="text-xl font-bold text-white">฿{totalInstallment.toLocaleString()}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <div className="bg-gray-700/50 rounded-lg p-3 sm:p-4 border border-gray-600">
+                  <div className="text-xs sm:text-sm text-gray-400 mb-1">ยอดผ่อนรวม/เดือน</div>
+                  <div className="text-lg sm:text-xl font-bold text-white">฿{totalInstallment.toLocaleString()}</div>
                 </div>
-                <div className="bg-gray-700/50 rounded-lg p-4 border border-gray-600">
-                  <div className="text-sm text-gray-400 mb-1">ค่าเช่ารวม/เดือน</div>
-                  <div className="text-xl font-bold text-green-400">฿{totalRent.toLocaleString()}</div>
+                <div className="bg-gray-700/50 rounded-lg p-3 sm:p-4 border border-gray-600">
+                  <div className="text-xs sm:text-sm text-gray-400 mb-1">ค่าเช่ารวม/เดือน</div>
+                  <div className="text-lg sm:text-xl font-bold text-green-400">฿{totalRent.toLocaleString()}</div>
                 </div>
-                <div className={`rounded-lg p-4 border ${totalDifference > 0 ? 'bg-red-900/30 border-red-700' : 'bg-green-900/30 border-green-700'}`}>
-                  <div className="text-sm text-gray-400 mb-1">เงินออกเพิ่มรวม/เดือน</div>
-                  <div className={`text-xl font-bold ${totalDifference > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                <div className={`rounded-lg p-3 sm:p-4 border ${totalDifference > 0 ? 'bg-red-900/30 border-red-700' : 'bg-green-900/30 border-green-700'}`}>
+                  <div className="text-xs sm:text-sm text-gray-400 mb-1">เงินออกเพิ่มรวม/เดือน</div>
+                  <div className={`text-lg sm:text-xl font-bold ${totalDifference > 0 ? 'text-red-400' : 'text-green-400'}`}>
                     {totalDifference > 0 ? '+' : ''}฿{totalDifference.toLocaleString()}
                   </div>
                 </div>

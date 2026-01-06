@@ -637,7 +637,7 @@ export default function RentPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Notification */}
         {notification && (
           <Notification
@@ -648,69 +648,70 @@ export default function RentPage() {
         )}
 
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white">จัดการค่าเช่า</h1>
-            <p className="text-gray-400">ติดตามและจัดการการชำระค่าเช่า</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">จัดการค่าเช่า</h1>
+            <p className="text-sm sm:text-base text-gray-400">ติดตามและจัดการการชำระค่าเช่า</p>
           </div>
           <button
             onClick={handleOpenCreateModal}
-            className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            className="flex items-center px-3 py-2 sm:px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            เพิ่มรายการค่าเช่า
+            <Plus className="h-4 w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">เพิ่มรายการค่าเช่า</span>
+            <span className="sm:hidden">เพิ่ม</span>
           </button>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-6">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+          <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-yellow-300">
+                <p className="text-xs sm:text-sm font-medium text-yellow-300">
                   ยังไม่ชำระ
                 </p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-xl sm:text-2xl font-bold text-white">
                   {unpaidPaymentsCount}
                 </p>
               </div>
-              <Clock className="h-8 w-8 text-yellow-500" />
+              <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-yellow-500 hidden sm:block" />
             </div>
           </div>
 
-          <div className="bg-red-900/20 border border-red-700 rounded-lg p-6">
+          <div className="bg-red-900/20 border border-red-700 rounded-lg p-3 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-red-300">เกินกำหนด</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-xs sm:text-sm font-medium text-red-300">เกินกำหนด</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">
                   {overduePaymentsCount}
                 </p>
               </div>
-              <AlertTriangle className="h-8 w-8 text-red-500" />
+              <AlertTriangle className="h-6 w-6 sm:h-8 sm:w-8 text-red-500 hidden sm:block" />
             </div>
           </div>
 
-          <div className="bg-green-900/20 border border-green-700 rounded-lg p-6">
+          <div className="bg-green-900/20 border border-green-700 rounded-lg p-3 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-300">ชำระแล้ว</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-xs sm:text-sm font-medium text-green-300">ชำระแล้ว</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">
                   {paidPaymentsCount}
                 </p>
               </div>
-              <Check className="h-8 w-8 text-green-500" />
+              <Check className="h-6 w-6 sm:h-8 sm:w-8 text-green-500 hidden sm:block" />
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-          <div className="flex items-center flex-wrap gap-4">
-            <Filter className="h-5 w-5 text-gray-400" />
+        <div className="bg-gray-800 rounded-lg border border-gray-700 p-3 sm:p-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 hidden sm:block" />
 
             {/* คอนโดฟิลเตอร์ */}
-            <div>
-              <label className="text-sm font-medium text-gray-300 mr-2">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <label className="text-xs sm:text-sm font-medium text-gray-300">
                 คอนโด:
               </label>
               <select
@@ -719,7 +720,7 @@ export default function RentPage() {
                   setSelectedCondoFilter(e.target.value);
                   setSelectedTenantFilter(""); // Reset tenant filter when condo changes
                 }}
-                className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="px-2 py-1 sm:px-3 bg-gray-700 border border-gray-600 rounded text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500 max-w-[100px] sm:max-w-none"
               >
                 <option value="">ทั้งหมด</option>
                 {condos.map((condo) => (
@@ -731,15 +732,15 @@ export default function RentPage() {
             </div>
 
             {/* ผู้เช่าฟิลเตอร์ */}
-            <div>
-              <label className="text-sm font-medium text-gray-300 mr-2">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <label className="text-xs sm:text-sm font-medium text-gray-300">
                 ผู้เช่า:
               </label>
               <select
                 value={selectedTenantFilter}
                 onChange={(e) => setSelectedTenantFilter(e.target.value)}
                 disabled={!selectedCondoFilter}
-                className={`px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 ${!selectedCondoFilter ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`px-2 py-1 sm:px-3 bg-gray-700 border border-gray-600 rounded text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500 max-w-[100px] sm:max-w-none ${!selectedCondoFilter ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <option value="">{selectedCondoFilter ? 'ทั้งหมด' : 'เลือกคอนโดก่อน'}</option>
                 {filteredTenantsForFilter.map((tenant) => (
@@ -809,7 +810,7 @@ export default function RentPage() {
               </select>
             </div>
 
-            <span className="text-sm text-gray-400">
+            <span className="text-xs sm:text-sm text-gray-400 w-full sm:w-auto">
               พบ {filteredPayments.length} รายการ
             </span>
           </div>
@@ -877,7 +878,7 @@ export default function RentPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   จำนวนเงิน (บาท) <span className="text-red-500">*</span>
@@ -920,7 +921,7 @@ export default function RentPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   สถานะ *

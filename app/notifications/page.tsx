@@ -151,27 +151,27 @@ export default function NotificationsPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Hero Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-violet-600/10 to-transparent border border-white/10 p-6">
+        <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-br from-primary/20 via-violet-600/10 to-transparent border border-white/10 p-4 sm:p-6">
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="relative">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
               <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-primary/20 rounded-xl">
-                    <Bell className="h-6 w-6 text-primary" />
+                <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                  <div className="p-1.5 sm:p-2 bg-primary/20 rounded-lg sm:rounded-xl">
+                    <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                   </div>
-                  <h1 className="text-2xl font-bold text-white">การแจ้งเตือน</h1>
+                  <h1 className="text-xl sm:text-2xl font-bold text-white">การแจ้งเตือน</h1>
                 </div>
-                <p className="text-gray-400">
+                <p className="text-sm sm:text-base text-gray-400">
                   ติดตามการแจ้งเตือนและข้อมูลสำคัญของคุณ
                 </p>
               </div>
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllAsRead}
-                  className="px-4 py-2.5 bg-primary text-white rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2 font-medium"
+                  className="px-3 py-2 sm:px-4 sm:py-2.5 bg-primary text-white rounded-lg sm:rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center gap-2 font-medium text-sm"
                 >
                   <MailOpen className="h-4 w-4" />
                   อ่านทั้งหมด
@@ -180,11 +180,11 @@ export default function NotificationsPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-3 mt-4">
+            <div className="flex flex-wrap gap-2 sm:gap-3 mt-3 sm:mt-4">
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-white text-xs sm:text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               >
                 {yearOptions.map((year) => (
                   <option key={year} value={year} className="bg-gray-900">
@@ -195,7 +195,7 @@ export default function NotificationsPage() {
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-white text-xs sm:text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               >
                 <option value="" className="bg-gray-900">ทุกเดือน</option>
                 {monthOptions.map((month) => (
@@ -207,7 +207,7 @@ export default function NotificationsPage() {
               <select
                 value={isRead}
                 onChange={(e) => setIsRead(e.target.value)}
-                className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-white text-xs sm:text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               >
                 <option value="" className="bg-gray-900">ทั้งหมด</option>
                 <option value="unread" className="bg-gray-900">ยังไม่อ่าน</option>
@@ -218,7 +218,7 @@ export default function NotificationsPage() {
         </div>
 
         {/* Inbox List */}
-        <div className="bg-card/30 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
+        <div className="bg-card/30 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-white/10 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
@@ -237,7 +237,7 @@ export default function NotificationsPage() {
                 <div
                   key={summary.id}
                   onClick={() => handleViewDetails(summary)}
-                  className={`group relative flex items-center gap-4 p-4 cursor-pointer transition-all hover:bg-white/5 ${
+                  className={`group relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 cursor-pointer transition-all hover:bg-white/5 ${
                     !summary.is_read ? "bg-primary/5" : ""
                   }`}
                   style={{ animationDelay: `${idx * 50}ms` }}
@@ -249,44 +249,44 @@ export default function NotificationsPage() {
 
                   {/* Icon */}
                   <div
-                    className={`flex-shrink-0 p-3 rounded-xl transition-all ${
+                    className={`flex-shrink-0 p-2 sm:p-3 rounded-lg sm:rounded-xl transition-all ${
                       !summary.is_read
                         ? "bg-primary/20 text-primary"
                         : "bg-white/5 text-gray-400 group-hover:bg-white/10"
                     }`}
                   >
                     {!summary.is_read ? (
-                      <Mail className="h-5 w-5" />
+                      <Mail className="h-4 w-4 sm:h-5 sm:w-5" />
                     ) : (
-                      <MailOpen className="h-5 w-5" />
+                      <MailOpen className="h-4 w-4 sm:h-5 sm:w-5" />
                     )}
                   </div>
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`font-semibold ${!summary.is_read ? "text-white" : "text-gray-300"}`}>
+                    <div className="flex items-center gap-2 mb-0.5 sm:mb-1">
+                      <span className={`font-semibold text-sm sm:text-base ${!summary.is_read ? "text-white" : "text-gray-300"}`}>
                         {formatDate(summary.date)}
                       </span>
                       {!summary.is_read && (
-                        <span className="px-2 py-0.5 bg-primary/20 text-primary text-xs font-medium rounded-full">
+                        <span className="px-1.5 py-0.5 sm:px-2 bg-primary/20 text-primary text-xs font-medium rounded-full">
                           ใหม่
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-gray-400">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-400">
                       <span className="flex items-center gap-1">
-                        <Bell className="h-3.5 w-3.5" />
+                        <Bell className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         {summary.total_count} รายการ
                       </span>
                       {summary.high_count > 0 && (
                         <span className="flex items-center gap-1 text-red-400">
-                          <AlertTriangle className="h-3.5 w-3.5" />
+                          <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                           {summary.high_count} สำคัญ
                         </span>
                       )}
                       {summary.email_sent && (
-                        <span className="flex items-center gap-1 text-emerald-400">
+                        <span className="hidden sm:flex items-center gap-1 text-emerald-400">
                           <CheckCircle className="h-3.5 w-3.5" />
                           ส่งเมลแล้ว
                         </span>

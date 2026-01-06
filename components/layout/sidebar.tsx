@@ -1,14 +1,15 @@
 "use client"
 import Link from "next/link"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation"
-// นำเข้าไอคอนสำหรับปุ่มย่อ/ขยาย
-import { Home, Building2, Users, CreditCard, TrendingUp, FileText, Bell, Settings, LogOut, History, Loader2, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { Home, Building2, Users, CreditCard, TrendingUp, FileText, Bell, Settings, LogOut, History, Loader2, ChevronsLeft, ChevronsRight, Menu, X } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 
 interface SidebarProps {
   onOpenProfileModal: () => void
+  isMobileOpen?: boolean
+  onMobileClose?: () => void
 }
 
 const navigation = [
@@ -22,12 +23,31 @@ const navigation = [
   { name: "การแจ้งเตือน", href: "/notifications", icon: Bell },
 ]
 
-export function Sidebar({ onOpenProfileModal }: SidebarProps) {
+export function Sidebar({ onOpenProfileModal, isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const { user, logout } = useAuth()
   const router = useRouter()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    // Initialize from localStorage on client side
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebarCollapsed')
+      return saved === 'true'
+    }
+    return false
+  })
+
+  // Sync collapsed state with localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', isCollapsed.toString())
+  }, [isCollapsed])
+
+  // Close mobile sidebar when route changes
+  useEffect(() => {
+    if (isMobileOpen && onMobileClose) {
+      onMobileClose()
+    }
+  }, [pathname])
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
@@ -43,14 +63,25 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed)
   }
+
+  const handleNavClick = () => {
+    // Close mobile sidebar when navigating
+    if (onMobileClose) {
+      onMobileClose()
+    }
+  }
   
   const sidebarWidthClass = isCollapsed ? "w-20" : "w-64"
   const CollapseIcon = isCollapsed ? ChevronsRight : ChevronsLeft
 
-  return (
-    <div className={cn("flex h-full flex-col bg-gray-900 border-r border-gray-800 transition-all duration-300 ease-in-out relative", sidebarWidthClass)}>
+  const sidebarContent = (
+    <div className={cn(
+      "flex h-full flex-col bg-gray-900 border-r border-gray-800 transition-all duration-300 ease-in-out relative",
+      // Desktop: use collapse width, Mobile: always full width
+      "md:w-auto w-72"
+    )} style={{ width: isMobileOpen ? '18rem' : undefined }}>
       
-      {/* ปุ่มย่อ/ขยาย - ปรับใหม่ให้สวยขึ้น */}
+      {/* Desktop collapse button - hidden on mobile */}
       <button
         onClick={toggleSidebar}
         className={cn(
@@ -59,7 +90,7 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
           "rounded-full p-2 shadow-lg hover:shadow-xl",
           "text-gray-400 hover:text-white",
           "transform hover:scale-110 active:scale-95",
-          // Animation สำหรับการเปลี่ยนตำแหน่ง
+          "hidden md:block",
           isCollapsed 
             ? "-right-4 translate-x-0" 
             : "-right-4 translate-x-0"
@@ -75,29 +106,36 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
           "h-4 w-4 transition-transform duration-300 ease-in-out",
           "group-hover:rotate-12"
         )} />
-        
-        {/* Ripple effect */}
         <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-20 group-hover:animate-ping bg-green-400 transition-opacity duration-300"></div>
       </button>
+
+      {/* Mobile close button */}
+      {isMobileOpen && (
+        <button
+          onClick={onMobileClose}
+          className="absolute top-4 right-4 z-20 p-2 text-gray-400 hover:text-white md:hidden"
+          aria-label="ปิดเมนู"
+        >
+          <X className="h-6 w-6" />
+        </button>
+      )}
 
       {/* Logo */}
       <div className="flex h-16 items-center px-4 border-b border-gray-800 relative">
         <div className={cn(
           "flex items-center transition-all duration-300",
-          isCollapsed && "justify-center w-full"
+          isCollapsed && !isMobileOpen && "md:justify-center md:w-full"
         )}>
           <div className="relative">
             <Building2 className="h-8 w-8 text-green-500 flex-shrink-0 transition-all duration-300 hover:text-green-400" />
-            {/* Glow effect */}
             <div className="absolute inset-0 h-8 w-8 text-green-500 opacity-50 blur-sm">
               <Building2 className="h-8 w-8" />
             </div>
           </div>
           
-          {/* ชื่อแอพ - ซ่อนเมื่อย่อ */}
           <div className={cn(
             "ml-3 transition-all duration-300 overflow-hidden",
-            isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+            isCollapsed && !isMobileOpen ? "md:w-0 md:opacity-0 w-auto opacity-100" : "w-auto opacity-100"
           )}>
             <span className="text-xl font-bold text-white whitespace-nowrap bg-gradient-to-r from-white to-green-300 bg-clip-text text-transparent">
               CondoManager
@@ -107,24 +145,23 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+      <nav className="flex-1 px-3 md:px-4 py-4 md:py-6 space-y-1 md:space-y-2 overflow-y-auto min-h-0">
         {navigation.map((item) => {
           const isActive = pathname === item.href
           return (
             <Link
               key={item.name}
               href={item.href}
+              onClick={handleNavClick}
               className={cn(
-                "relative flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-300 group overflow-hidden",
+                "relative flex items-center px-3 py-2.5 md:py-3 text-sm font-medium rounded-xl transition-all duration-300 group overflow-hidden",
                 isActive 
                   ? "bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg shadow-green-600/25" 
                   : "text-gray-300 hover:bg-gray-800 hover:text-white hover:shadow-md",
-                isCollapsed ? "justify-center" : "",
-                // เพิ่ม border เมื่อ active
+                isCollapsed && !isMobileOpen ? "md:justify-center" : "",
                 isActive && "border border-green-500/50"
               )}
             >
-              {/* Background animation */}
               {!isActive && (
                 <div className="absolute inset-0 bg-gradient-to-r from-gray-800 to-gray-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
               )}
@@ -132,54 +169,53 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
               <div className="relative z-10 flex items-center">
                 <item.icon className={cn(
                   "h-5 w-5 flex-shrink-0 transition-all duration-300",
-                  !isCollapsed && "mr-3",
+                  (!isCollapsed || isMobileOpen) && "mr-3",
                   isActive && "drop-shadow-sm",
                   "group-hover:scale-110"
                 )} />
                 
-                {/* ข้อความ - ซ่อนเมื่อย่อ */}
                 <span className={cn(
                   "whitespace-nowrap transition-all duration-300 relative z-10",
-                  isCollapsed 
-                    ? "opacity-0 w-0 translate-x-4" 
+                  isCollapsed && !isMobileOpen
+                    ? "md:opacity-0 md:w-0 md:translate-x-4 opacity-100 w-auto translate-x-0" 
                     : "opacity-100 w-auto translate-x-0"
                 )}>
                   {item.name}
                 </span>
               </div>
 
-              {/* Tooltip เมื่อย่อ - ปรับปรุงให้สวยขึ้น */}
-              {isCollapsed && (
+              {/* Desktop tooltip when collapsed */}
+              {isCollapsed && !isMobileOpen && (
                 <div className={cn(
                   "absolute left-full ml-6 px-3 py-2 text-sm text-white",
                   "bg-gray-800 border border-gray-600 rounded-lg shadow-xl",
                   "whitespace-nowrap z-50 pointer-events-none",
                   "opacity-0 scale-95 translate-x-2 group-hover:opacity-100 group-hover:scale-100 group-hover:translate-x-0",
-                  "transition-all duration-200 ease-out"
+                  "transition-all duration-200 ease-out",
+                  "hidden md:block"
                 )}>
                   {item.name}
-                  {/* Arrow */}
                   <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1">
                     <div className="w-2 h-2 bg-gray-800 border-l border-t border-gray-600 rotate-45"></div>
                   </div>
                 </div>
               )}
-
-              
             </Link>
           )
         })}
       </nav>
 
-      {/* User section */}
-      <div className="border-t border-gray-800 p-3">
-        {/* User Info - Clickable to open profile */}
+      {/* User section - always at bottom */}
+      <div className="border-t border-gray-800 p-2 md:p-3 mt-auto shrink-0">
         <button
-          onClick={onOpenProfileModal}
+          onClick={() => {
+            onOpenProfileModal()
+            handleNavClick()
+          }}
           className={cn(
             "flex items-center mb-2 transition-all duration-300 w-full rounded-lg p-2",
             "hover:bg-gray-800 group cursor-pointer",
-            isCollapsed && "justify-center"
+            isCollapsed && !isMobileOpen && "md:justify-center"
           )}
           title="ตั้งค่าโปรไฟล์"
         >
@@ -195,14 +231,12 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
                 <span className="text-sm font-medium text-white">{user?.full_name?.charAt(0) || "U"}</span>
               )}
             </div>
-            {/* Online indicator */}
             <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 border-2 border-gray-900 rounded-full"></div>
           </div>
           
-          {/* User details - ซ่อนเมื่อย่อ */}
           <div className={cn(
             "ml-2.5 flex-1 min-w-0 overflow-hidden transition-all duration-300 text-left",
-            isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+            isCollapsed && !isMobileOpen ? "md:w-0 md:opacity-0 w-auto opacity-100" : "w-auto opacity-100"
           )}>
             <p className="text-sm font-medium text-white whitespace-nowrap truncate leading-tight">
               {user?.full_name}
@@ -212,15 +246,13 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
             </p>
           </div>
 
-          {/* Settings Icon - แสดงเมื่อไม่ย่อ */}
-          {!isCollapsed && (
+          {(!isCollapsed || isMobileOpen) && (
             <div className="ml-1 p-1.5 rounded-lg text-gray-400 group-hover:text-white transition-all duration-300">
               <Settings className="h-4 w-4 transition-transform duration-300 group-hover:rotate-90" />
             </div>
           )}
         </button>
 
-        {/* Logout Button */}
         <button
           onClick={handleLogout}
           disabled={isLoggingOut}
@@ -229,28 +261,71 @@ export function Sidebar({ onOpenProfileModal }: SidebarProps) {
             isLoggingOut 
               ? "bg-gray-700 text-gray-400 cursor-not-allowed" 
               : "text-gray-400 hover:bg-red-900/40 hover:text-red-300",
-            isCollapsed && "justify-center"
+            isCollapsed && !isMobileOpen && "md:justify-center"
           )}
         >
           {isLoggingOut ? (
             <Loader2 className={cn(
               "h-4 w-4 animate-spin flex-shrink-0",
-              !isCollapsed && "mr-2"
+              (!isCollapsed || isMobileOpen) && "mr-2"
             )} />
           ) : (
             <LogOut className={cn(
               "h-4 w-4 flex-shrink-0 transition-transform duration-300 group-hover:-translate-x-0.5",
-              !isCollapsed && "mr-2"
+              (!isCollapsed || isMobileOpen) && "mr-2"
             )} />
           )}
           
-          {!isCollapsed && (
+          {(!isCollapsed || isMobileOpen) && (
             <span className="whitespace-nowrap text-xs">
               {isLoggingOut ? "กำลังออก..." : "ออกจากระบบ"}
             </span>
           )}
         </button>
       </div>
+    </div>
+  )
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <div className={cn("hidden md:flex h-full transition-all duration-300", sidebarWidthClass)}>
+        {sidebarContent}
+      </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={onMobileClose}
+          />
+          {/* Sidebar */}
+          <div className="absolute left-0 top-0 h-full w-72 animate-in slide-in-from-left duration-300">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+// Mobile Header Component
+export function MobileHeader({ onMenuClick }: { onMenuClick: () => void }) {
+  return (
+    <div className="md:hidden flex items-center justify-between px-4 py-3 bg-gray-900 border-b border-gray-800">
+      <div className="flex items-center gap-2">
+        <Building2 className="h-6 w-6 text-green-500" />
+        <span className="text-lg font-bold text-white">CondoManager</span>
+      </div>
+      <button
+        onClick={onMenuClick}
+        className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+        aria-label="เปิดเมนู"
+      >
+        <Menu className="h-6 w-6" />
+      </button>
     </div>
   )
 }

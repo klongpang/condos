@@ -700,7 +700,7 @@ export default function FinancialsPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Notification */}
         {notification && (
           <Notification
@@ -711,26 +711,27 @@ export default function FinancialsPage() {
         )}
 
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white">การเงิน</h1>
-            <p className="text-gray-400">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">การเงิน</h1>
+            <p className="text-sm sm:text-base text-gray-400">
               ติดตามรายรับและรายจ่ายสำหรับอสังหาริมทรัพย์ของคุณ
             </p>
           </div>
           <div className="flex space-x-3">
             <button
               onClick={() => openModal("income")}
-              className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-lg shadow-green-900/20"
+              className="flex items-center px-3 py-2 sm:px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-lg shadow-green-900/20 text-sm"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              เพิ่มรายการ
+              <Plus className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">เพิ่มรายการ</span>
+              <span className="sm:hidden">เพิ่ม</span>
             </button>
           </div>
         </div>
 
         {/* Financial Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
           <StatsCard
             title="รายได้รวม"
             value={`฿${totalIncome.toLocaleString()}`}
@@ -749,22 +750,22 @@ export default function FinancialsPage() {
               netIncome >= 0
                 ? { value: 0, isPositive: true }
                 : { value: 0, isPositive: false }
-            } // Icon based on positive/negative
+            }
           />
         </div>
 
         {/* Filters */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-          <div className="flex items-center space-x-4">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <div>
-              <label className="text-sm font-medium text-gray-300 mr-2">
+        <div className="bg-gray-800 rounded-lg border border-gray-700 p-3 sm:p-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 hidden sm:block" />
+            <div className="flex items-center gap-1 sm:gap-2">
+              <label className="text-xs sm:text-sm font-medium text-gray-300">
                 คอนโด:
               </label>
               <select
                 value={selectedCondoFilter}
                 onChange={(e) => setSelectedCondoFilter(e.target.value)}
-                className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="px-2 py-1 sm:px-3 bg-gray-700 border border-gray-600 rounded text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500 max-w-[100px] sm:max-w-none"
               >
                 <option value="">ทั้งหมด</option>
                 {condos.map((condo) => (
@@ -774,14 +775,14 @@ export default function FinancialsPage() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-300 mr-2">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <label className="text-xs sm:text-sm font-medium text-gray-300">
                 ปี:
               </label>
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="px-2 py-1 sm:px-3 bg-gray-700 border border-gray-600 rounded text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="">ทุกปี</option>
                 {yearOptions.map((year) => (
@@ -791,14 +792,14 @@ export default function FinancialsPage() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="text-sm font-medium text-gray-300 mr-2">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <label className="text-xs sm:text-sm font-medium text-gray-300">
                 เดือน:
               </label>
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="px-2 py-1 sm:px-3 bg-gray-700 border border-gray-600 rounded text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="">ทุกเดือน</option>
                 {monthOptions.map((month) => (
@@ -808,7 +809,7 @@ export default function FinancialsPage() {
                 ))}
               </select>
             </div>
-            <span className="text-sm text-gray-400">
+            <span className="text-xs sm:text-sm text-gray-400 w-full sm:w-auto">
               พบ {filteredIncomeRecords.length + filteredExpenseRecords.length}{" "}
               รายการ
             </span>
@@ -816,10 +817,10 @@ export default function FinancialsPage() {
         </div>
 
         {/* Income Records */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-white">รายการรายรับ</h2>
-            <div className="flex items-center gap-3">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h2 className="text-lg sm:text-xl font-semibold text-white">รายการรายรับ</h2>
+            <div className="flex items-center gap-2 sm:gap-3">
               <div className="flex items-center gap-2">
                 <label className="text-sm text-gray-400">หมวดหมู่:</label>
                 <select
@@ -850,10 +851,10 @@ export default function FinancialsPage() {
         </div>
 
         {/* Expense Records */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-white">รายการรายจ่าย</h2>
-            <div className="flex items-center gap-3">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h2 className="text-lg sm:text-xl font-semibold text-white">รายการรายจ่าย</h2>
+            <div className="flex items-center gap-2 sm:gap-3">
               <div className="flex items-center gap-2">
                 <label className="text-sm text-gray-400">หมวดหมู่:</label>
                 <select
@@ -967,7 +968,7 @@ export default function FinancialsPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   หัวข้อ <span className="text-red-500">*</span>
@@ -1024,7 +1025,7 @@ export default function FinancialsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   จำนวนเงิน (บาท) <span className="text-red-500">*</span>

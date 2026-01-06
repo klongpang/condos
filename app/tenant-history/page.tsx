@@ -203,29 +203,29 @@ export default function TenantHistoryPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div>
-            <h1 className="text-2xl font-bold text-white flex items-center">
+            <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center">
               ประวัติผู้เช่า
             </h1>
-            <p className="text-gray-400">
+            <p className="text-sm sm:text-base text-gray-400">
               ประวัติผู้เช่าทั้งหมดที่เคยอาศัยในคอนโดของคุณ
             </p>
           </div>
         </div>
 
         {/* Filter */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-          <div className="flex items-center space-x-4">
-            <label className="text-sm font-medium text-gray-300">
+        <div className="bg-gray-800 rounded-lg border border-gray-700 p-3 sm:p-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+            <label className="text-xs sm:text-sm font-medium text-gray-300">
               กรองตามห้อง:
             </label>
             <select
               value={selectedCondo}
               onChange={(e) => setSelectedCondo(e.target.value)}
-              className="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="px-2 py-1.5 sm:px-3 sm:py-2 bg-gray-700 border border-gray-600 rounded-md text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500 max-w-[150px] sm:max-w-none"
             >
               <option value="">ทุกห้อง</option>
               {condos?.map((condo) => (
@@ -234,7 +234,7 @@ export default function TenantHistoryPage() {
                 </option>
               ))}
             </select>
-            <span className="text-sm text-gray-400">
+            <span className="text-xs sm:text-sm text-gray-400">
               พบ {filteredHistory.length} รายการ
             </span>
           </div>

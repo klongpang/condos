@@ -209,17 +209,17 @@ export default function DashboardPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header with Refresh Button */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white">แดชบอร์ด</h1>
-            <p className="text-gray-400">ยินดีต้อนรับ, {user?.full_name}</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">แดชบอร์ด</h1>
+            <p className="text-sm sm:text-base text-gray-400">ยินดีต้อนรับ, {user?.full_name}</p>
           </div>
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg border border-gray-700 transition-colors disabled:opacity-50"
+            className="flex items-center justify-center gap-2 px-3 py-2 sm:px-4 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg border border-gray-700 transition-colors disabled:opacity-50 text-sm"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             รีเฟรช
@@ -227,7 +227,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
           <StatsCard 
             title="คอนโดทั้งหมด" 
             value={totalCondos} 
@@ -272,7 +272,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Rent Payment Status Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
           <StatsCard
             title="ยอดค้างชำระ (ยังไม่ชำระ)"
             value={`฿${totalUnpaidAmount.toLocaleString()}`}
@@ -294,7 +294,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Financial Overview */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
           <StatsCard 
             title="รายได้รวม" 
             value={`฿${totalIncome.toLocaleString()}`} 
@@ -322,11 +322,11 @@ export default function DashboardPage() {
         </div>
 
         {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
           {/* Monthly Income/Expense Chart */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-green-500" />
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 sm:p-6">
+            <h2 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
               รายรับ-รายจ่าย 6 เดือนล่าสุด
             </h2>
             {isLoading ? (
@@ -352,9 +352,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Payment Status Pie Chart */}
-          <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Check className="h-5 w-5 text-green-500" />
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 sm:p-6">
+            <h2 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+              <Check className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
               สถานะการชำระค่าเช่า
             </h2>
             {isLoading ? (
@@ -366,8 +366,8 @@ export default function DashboardPage() {
                 ไม่มีข้อมูลการชำระค่าเช่า
               </div>
             ) : (
-              <div className="flex items-center justify-center gap-6">
-                <ResponsiveContainer width={180} height={180}>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
+                <ResponsiveContainer width={160} height={160} className="sm:!w-[180px] sm:!h-[180px]">
                   <PieChart>
                     <Pie
                       data={paymentStatusData}
@@ -402,12 +402,13 @@ export default function DashboardPage() {
 
         {/* Upcoming Due Dates */}
         {upcomingPayments.length > 0 && (
-          <div className="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 rounded-lg border border-yellow-700/50 p-6">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Bell className="h-5 w-5 text-yellow-500" />
-              การชำระที่ใกล้ครบกำหนด (7 วันข้างหน้า)
+          <div className="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 rounded-lg border border-yellow-700/50 p-4 sm:p-6">
+            <h2 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+              <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500" />
+              <span className="hidden sm:inline">การชำระที่ใกล้ครบกำหนด (7 วันข้างหน้า)</span>
+              <span className="sm:hidden">ใกล้ครบกำหนด</span>
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {upcomingPayments.map((payment) => {
                 // Use payment.tenant from database join to include inactive tenants
                 const tenant = payment.tenant
@@ -446,8 +447,8 @@ export default function DashboardPage() {
           </div>
         )}
         
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-white">รายการรอชำระและคงค้าง</h2>
+        <div className="space-y-4 sm:space-y-6">
+          <h2 className="text-lg sm:text-xl font-semibold text-white">รายการรอชำระและคงค้าง</h2>
           <DataTable
             data={recentUnpaidOverduePayments}
             columns={paymentColumns}
@@ -459,8 +460,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Paid Payments Table */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-white">รายการชำระค่าเช่า</h2>
+        <div className="space-y-4 sm:space-y-6">
+          <h2 className="text-lg sm:text-xl font-semibold text-white">รายการชำระค่าเช่า</h2>
           <DataTable
             data={recentPaidPayments}
             columns={paymentColumns}

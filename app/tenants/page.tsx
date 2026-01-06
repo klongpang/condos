@@ -620,7 +620,7 @@ export default function TenantsPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Notification */}
         {notification && (
           <Notification
@@ -631,27 +631,27 @@ export default function TenantsPage() {
         )}
 
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white">ผู้เช่า</h1>
-            <p className="text-gray-400">จัดการผู้เช่าและสัญญาเช่า</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">ผู้เช่า</h1>
+            <p className="text-sm sm:text-base text-gray-400">จัดการผู้เช่าและสัญญาเช่า</p>
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            className="flex items-center px-3 py-2 sm:px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4 mr-1 sm:mr-2" />
             เพิ่มผู้เช่า
           </button>
         </div>
 
         {/* Filters */}
-        <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-          <div className="flex items-center space-x-4">
-            <Filter className="h-5 w-5 text-gray-400" />
-            <div className="flex items-center space-x-4">
-              <div>
-                <label className="text-sm font-medium text-gray-300 mr-2">
+        <div className="bg-gray-800 rounded-lg border border-gray-700 p-3 sm:p-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <Filter className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 hidden sm:block" />
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-xs sm:text-sm font-medium text-gray-300">
                   สถานะ:
                 </label>
                 <select
@@ -661,21 +661,21 @@ export default function TenantsPage() {
                       e.target.value as "all" | "active" | "vacant"
                     )
                   }
-                  className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="px-2 py-1 sm:px-3 bg-gray-700 border border-gray-600 rounded text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="active">มีผู้เช่า</option>
                   <option value="vacant">ห้องว่าง</option>
                   <option value="all">ทั้งหมด</option>
                 </select>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-300 mr-2">
+              <div className="flex items-center gap-2">
+                <label className="text-xs sm:text-sm font-medium text-gray-300">
                   คอนโด:
                 </label>
                 <select
                   value={selectedCondoFilter}
                   onChange={(e) => setSelectedCondoFilter(e.target.value)}
-                  className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="px-2 py-1 sm:px-3 bg-gray-700 border border-gray-600 rounded text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500 max-w-[120px] sm:max-w-none"
                 >
                   <option value="">ทั้งหมด</option>
                   {condos.map((condo) => (
@@ -686,7 +686,7 @@ export default function TenantsPage() {
                 </select>
               </div>
             </div>
-            <span className="text-sm text-gray-400">
+            <span className="text-xs sm:text-sm text-gray-400">
               พบ {filteredTenants.length} รายการ
             </span>
           </div>
@@ -708,8 +708,8 @@ export default function TenantsPage() {
           title={editingTenant ? "แก้ไขผู้เช่า" : "เพิ่มผู้เช่าใหม่"}
           size="lg"
         >
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   ชื่อ-นามสกุล <span className="text-red-500">*</span>

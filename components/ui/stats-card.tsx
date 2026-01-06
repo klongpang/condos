@@ -40,7 +40,7 @@ export function StatsCard({
 
   return (
     <div 
-      className={`bg-gray-800 rounded-lg p-6 border border-gray-700 relative ${className}`}
+      className={`bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700 relative ${className}`}
       onMouseEnter={() => tooltip && setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
@@ -53,24 +53,24 @@ export function StatsCard({
       )}
       
       <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-400">{title}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs sm:text-sm font-medium text-gray-400 truncate">{title}</p>
           {loading ? (
             <div className="mt-1">
-              <div className="h-8 w-32 bg-gray-700 animate-pulse rounded"></div>
+              <div className="h-6 sm:h-8 w-24 sm:w-32 bg-gray-700 animate-pulse rounded"></div>
             </div>
           ) : (
-            <p className="text-2xl font-bold text-white mt-1">{value}</p>
+            <p className="text-xl sm:text-2xl font-bold text-white mt-1 truncate">{value}</p>
           )}
           {trend && !loading && (
-            <p className={`text-sm mt-1 ${trend.isPositive ? "text-green-500" : "text-red-500"}`}>
+            <p className={`text-xs sm:text-sm mt-1 ${trend.isPositive ? "text-green-500" : "text-red-500"}`}>
               {trend.isPositive ? "+" : ""}
               {trend.value}{trend.label || "%"}
             </p>
           )}
         </div>
-        <div className={`h-12 w-12 ${iconColorClasses[iconColor]} rounded-lg flex items-center justify-center transition-colors`}>
-          <Icon className="h-6 w-6 text-white" />
+        <div className={`h-10 w-10 sm:h-12 sm:w-12 ${iconColorClasses[iconColor]} rounded-lg flex items-center justify-center transition-colors shrink-0 ml-2`}>
+          <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
         </div>
       </div>
     </div>

@@ -415,7 +415,7 @@ export default function CondosPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* Notification */}
         {notification && (
           <Notification
@@ -426,16 +426,16 @@ export default function CondosPage() {
         )}
 
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white">คอนโด</h1>
-            <p className="text-gray-400">จัดการคอนโดของคุณ</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-white">คอนโด</h1>
+            <p className="text-sm sm:text-base text-gray-400">จัดการคอนโดของคุณ</p>
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+            className="flex items-center px-3 py-2 sm:px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
           >
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4 mr-1 sm:mr-2" />
             เพิ่มคอนโด
           </button>
         </div>
@@ -456,8 +456,8 @@ export default function CondosPage() {
           title={editingCondo ? "แก้ไขคอนโด" : "เพิ่มคอนโดใหม่"}
           size="lg"
         >
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">
                   ชื่อคอนโด <span className="text-red-500">*</span>
