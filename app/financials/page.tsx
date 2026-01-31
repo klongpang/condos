@@ -843,6 +843,7 @@ export default function FinancialsPage() {
             </div>
           </div>
           <DataTable
+            key={`income-${selectedIncomeCategory}-${selectedCondoFilter}-${selectedYear}-${selectedMonth}`}
             data={filteredIncomeRecords}
             columns={incomeColumns}
             loading={loading}
@@ -877,6 +878,7 @@ export default function FinancialsPage() {
             </div>
           </div>
           <DataTable
+            key={`expense-${selectedExpenseCategory}-${selectedCondoFilter}-${selectedYear}-${selectedMonth}`}
             data={filteredExpenseRecords}
             columns={expenseColumns}
             loading={loading}
