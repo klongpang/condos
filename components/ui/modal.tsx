@@ -12,16 +12,18 @@ interface ModalProps {
   showCloseButton?: boolean
 }
 
+// Static data hoisted outside component to prevent recreation on every render
+// See: Vercel Best Practices - rendering-hoist-jsx
+const SIZE_CLASSES = {
+  sm: "max-w-md",
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+  xl: "max-w-4xl",
+  full: "max-w-full w-full h-full m-0",
+}
+
 export function Modal({ isOpen, onClose, title, children, size = "md", showCloseButton = true }: ModalProps) {
   if (!isOpen) return null
-
-  const sizeClasses = {
-    sm: "max-w-md",
-    md: "max-w-lg",
-    lg: "max-w-2xl",
-    xl: "max-w-4xl",
-    full: "max-w-full w-full h-full m-0",
-  }
 
   const isFull = size === "full"
 
@@ -31,7 +33,7 @@ export function Modal({ isOpen, onClose, title, children, size = "md", showClose
         <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
         <div className={`
           relative bg-gray-800 shadow-xl w-full
-          ${isFull ? "w-full h-full" : `${sizeClasses[size]} border border-gray-700 rounded-lg`}
+          ${isFull ? "w-full h-full" : `${SIZE_CLASSES[size]} border border-gray-700 rounded-lg`}
           ${isFull ? "" : "max-h-[95vh] sm:max-h-[90vh] flex flex-col"}
         `}>
           {!isFull && (

@@ -43,6 +43,30 @@ import {
 
 import { NumericFormat } from "react-number-format";
 
+// Static data hoisted outside component to prevent recreation on every render
+// See: Vercel Best Practices - rendering-hoist-jsx
+const MONTHS_TH = [
+  "มกราคม",
+  "กุมภาพันธ์",
+  "มีนาคม",
+  "เมษายน",
+  "พฤษภาคม",
+  "มิถุนายน",
+  "กรกฎาคม",
+  "สิงหาคม",
+  "กันยายน",
+  "ตุลาคม",
+  "พฤศจิกายน",
+  "ธันวาคม",
+];
+
+const PAYMENT_DOCUMENT_TYPES = [
+  { value: "payment_receipt", label: "ใบเสร็จการชำระ" },
+  { value: "bank_slip", label: "สลิปโอนเงิน" },
+  { value: "proof", label: "หลักฐานการชำระ" },
+  { value: "other", label: "อื่นๆ" },
+];
+
 export default function RentPage() {
   const { user } = useAuth();
   const {
@@ -117,21 +141,6 @@ export default function RentPage() {
     return Array.from(tenantMap.values());
   }, [payments, selectedCondoFilter]);
 
-  // ข้อมูลเดือนภาษาไทย
-  const months = [
-    "มกราคม",
-    "กุมภาพันธ์",
-    "มีนาคม",
-    "เมษายน",
-    "พฤษภาคม",
-    "มิถุนายน",
-    "กรกฎาคม",
-    "สิงหาคม",
-    "กันยายน",
-    "ตุลาคม",
-    "พฤศจิกายน",
-    "ธันวาคม",
-  ];
 
   // เพิ่มรายการปีจากข้อมูล payments
   const years = useMemo(() => {
@@ -465,13 +474,6 @@ export default function RentPage() {
     }
   };
 
-  // Document types for payment receipts
-  const paymentDocumentTypes = [
-    { value: "payment_receipt", label: "ใบเสร็จการชำระ" },
-    { value: "bank_slip", label: "สลิปโอนเงิน" },
-    { value: "proof", label: "หลักฐานการชำระ" },
-    { value: "other", label: "อื่นๆ" },
-  ];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -782,7 +784,7 @@ export default function RentPage() {
                 className="px-3 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="">ทั้งหมด</option>
-                {months.map((month, index) => (
+                {MONTHS_TH.map((month, index) => (
                   <option key={index} value={index + 1}>
                     {month}
                   </option>
@@ -975,7 +977,7 @@ export default function RentPage() {
               <div>
                 <DocumentPreview
                   documents={paymentDocuments}
-                  documentTypes={paymentDocumentTypes}
+                  documentTypes={PAYMENT_DOCUMENT_TYPES}
                   loading={paymentDocumentsLoading}
                   onDeleteDocument={handleDocumentDelete}
                   title="เอกสารที่แนบสำหรับรายการนี้"

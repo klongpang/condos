@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    // Optimize barrel file imports for faster dev boot and smaller bundles
+    // See: https://vercel.com/blog/how-we-optimized-package-imports-in-next-js
+    optimizePackageImports: ['lucide-react', 'recharts', 'date-fns', 'react-number-format'],
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

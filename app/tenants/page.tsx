@@ -41,6 +41,15 @@ import {
   endTenantContractAction,
 } from "@/app/actions/tenant-actions";
 
+// Static data hoisted outside component to prevent recreation on every render
+// See: Vercel Best Practices - rendering-hoist-jsx
+const TENANT_DOCUMENT_TYPES = [
+  { value: "id_card", label: "สำเนาบัตรประชาชน" },
+  { value: "rental_agreement", label: "สัญญาเช่า" },
+  { value: "bank_account", label: "สำเนาบัญชีธนาคาร" },
+  { value: "other", label: "อื่นๆ" },
+];
+
 
 export default function TenantsPage() {
   const { user } = useAuth();
@@ -434,12 +443,6 @@ export default function TenantsPage() {
 
 
 
-  const tenantDocumentTypes = [
-    { value: "id_card", label: "สำเนาบัตรประชาชน" },
-    { value: "rental_agreement", label: "สัญญาเช่า" },
-    { value: "bank_account", label: "สำเนาบัญชีธนาคาร" },
-    { value: "other", label: "อื่นๆ" },
-  ];
 
   const columns = [
     {
@@ -1041,7 +1044,7 @@ export default function TenantsPage() {
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="">เลือกประเภทเอกสาร</option>
-                {tenantDocumentTypes.map((type) => (
+                {TENANT_DOCUMENT_TYPES.map((type) => (
                   <option key={type.value} value={type.value}>
                     {type.label}
                   </option>
@@ -1061,7 +1064,7 @@ export default function TenantsPage() {
 
             <DocumentPreview
               documents={tenantDocuments}
-              documentTypes={tenantDocumentTypes}
+              documentTypes={TENANT_DOCUMENT_TYPES}
               loading={tenantDocumentsLoading}
               onDeleteDocument={handleTenantDocumentDelete}
               title="เอกสารที่มีอยู่"

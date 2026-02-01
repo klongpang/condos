@@ -43,6 +43,50 @@ import {
   deleteExpenseAction,
 } from "@/app/actions/financial-actions";
 
+// Static data hoisted outside component to prevent recreation on every render
+// See: Vercel Best Practices - rendering-hoist-jsx
+const DOCUMENT_TYPES = [
+  { value: "receipt", label: "ใบเสร็จ" },
+  { value: "invoice", label: "ใบแจ้งหนี้" },
+  { value: "bank_statement", label: "รายการเดินบัญชี" },
+  { value: "other", label: "อื่นๆ" },
+] as const;
+
+const MONTH_OPTIONS = [
+  { value: "1", label: "มกราคม" },
+  { value: "2", label: "กุมภาพันธ์" },
+  { value: "3", label: "มีนาคม" },
+  { value: "4", label: "เมษายน" },
+  { value: "5", label: "พฤษภาคม" },
+  { value: "6", label: "มิถุนายน" },
+  { value: "7", label: "กรกฎาคม" },
+  { value: "8", label: "สิงหาคม" },
+  { value: "9", label: "กันยายน" },
+  { value: "10", label: "ตุลาคม" },
+  { value: "11", label: "พฤศจิกายน" },
+  { value: "12", label: "ธันวาคม" },
+] as const;
+
+const INCOME_CATEGORIES = [
+  "ค่าเช่า",
+  "ค่าที่จอดรถ",
+  "ค่าประกันห้อง",
+  "ค่าส่วนกลาง",
+  "ค่าปรับ",
+  "อื่นๆ",
+] as const;
+
+const EXPENSE_CATEGORIES = [
+  "ค่าบำรุงรักษา",
+  "ค่าส่วนกลาง",
+  "ค่าตกแต่งห้อง",
+  "ค่าน้ำ/ไฟ",
+  "ค่าประกันห้อง",
+  "ค่าประกันภัย",
+  "ค่านายหน้า",
+  "ค่าภาษี",
+  "อื่นๆ",
+] as const;
 
 export default function FinancialsPage() {
   const { user } = useAuth();
@@ -481,13 +525,6 @@ export default function FinancialsPage() {
     }
   };
 
-  const documentTypes = [
-    { value: "receipt", label: "ใบเสร็จ" },
-    { value: "invoice", label: "ใบแจ้งหนี้" },
-    { value: "bank_statement", label: "รายการเดินบัญชี" },
-    { value: "other", label: "อื่นๆ" },
-  ];
-
   // Calculate year options based on actual data
   const yearOptions = useMemo(() => {
     const allRecords = [...incomeRecords, ...expenseRecords];
@@ -515,20 +552,6 @@ export default function FinancialsPage() {
     }
     return yearRange;
   }, [incomeRecords, expenseRecords, currentYear]);
-  const monthOptions = [
-    { value: "1", label: "มกราคม" },
-    { value: "2", label: "กุมภาพันธ์" },
-    { value: "3", label: "มีนาคม" },
-    { value: "4", label: "เมษายน" },
-    { value: "5", label: "พฤษภาคม" },
-    { value: "6", label: "มิถุนายน" },
-    { value: "7", label: "กรกฎาคม" },
-    { value: "8", label: "สิงหาคม" },
-    { value: "9", label: "กันยายน" },
-    { value: "10", label: "ตุลาคม" },
-    { value: "11", label: "พฤศจิกายน" },
-    { value: "12", label: "ธันวาคม" },
-  ];
 
   // Income columns
   const incomeColumns = [
@@ -679,25 +702,7 @@ export default function FinancialsPage() {
     },
   ];
 
-  const incomeCategories = [
-    "ค่าเช่า",
-    "ค่าที่จอดรถ",
-    "ค่าประกันห้อง",
-    "ค่าส่วนกลาง",
-    "ค่าปรับ",
-    "อื่นๆ",
-  ];
-  const expenseCategories = [
-    "ค่าบำรุงรักษา",
-    "ค่าส่วนกลาง",
-    "ค่าตกแต่งห้อง",
-    "ค่าน้ำ/ไฟ",
-    "ค่าประกันห้อง",
-    "ค่าประกันภัย",
-    "ค่านายหน้า",
-    "ค่าภาษี",
-    "อื่นๆ",
-  ];
+
 
   return (
     <MainLayout>
@@ -803,7 +808,7 @@ export default function FinancialsPage() {
                 className="px-2 py-1 sm:px-3 bg-gray-700 border border-gray-600 rounded text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="">ทุกเดือน</option>
-                {monthOptions.map((month) => (
+                {MONTH_OPTIONS.map((month) => (
                   <option key={month.value} value={month.value}>
                     {month.label}
                   </option>
@@ -830,7 +835,7 @@ export default function FinancialsPage() {
                   className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="">ทั้งหมด</option>
-                  {incomeCategories.map((cat) => (
+                  {INCOME_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
                       {cat}
                     </option>
@@ -865,7 +870,7 @@ export default function FinancialsPage() {
                   className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="">ทั้งหมด</option>
-                  {expenseCategories.map((cat) => (
+                  {EXPENSE_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
                       {cat}
                     </option>
@@ -1011,8 +1016,8 @@ export default function FinancialsPage() {
                 >
                   <option value="">เลือกหมวดหมู่</option>
                   {(recordType === "income"
-                    ? incomeCategories
-                    : expenseCategories
+                    ? INCOME_CATEGORIES
+                    : EXPENSE_CATEGORIES
                   ).map((category) => (
                     <option key={category} value={category}>
                       {category}
@@ -1142,7 +1147,7 @@ export default function FinancialsPage() {
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="">เลือกประเภทเอกสาร</option>
-                {documentTypes.map((type) => (
+                {DOCUMENT_TYPES.map((type) => (
                   <option key={type.value} value={type.value}>
                     {type.label}
                   </option>
@@ -1164,7 +1169,7 @@ export default function FinancialsPage() {
               <div>
                 <DocumentPreview
                   documents={documents}
-                  documentTypes={documentTypes}
+                  documentTypes={[...DOCUMENT_TYPES]}
                   loading={documentsLoading}
                   onDeleteDocument={handleDocumentDelete}
                   title="เอกสารที่มีอยู่สำหรับรายการนี้"

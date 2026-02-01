@@ -27,6 +27,16 @@ import {
 
 import { NumericFormat } from "react-number-format";
 
+// Static data hoisted outside component to prevent recreation on every render
+// See: Vercel Best Practices - rendering-hoist-jsx
+const CONDO_DOCUMENT_TYPES = [
+  { value: "condo_image", label: "รูปคอนโด" },
+  { value: "purchase_contract", label: "สัญญาเช่าซื้อขาย" },
+  { value: "land_deed", label: "โฉนด" },
+  { value: "insurance", label: "ประกัน" },
+  { value: "other", label: "อื่นๆ" },
+];
+
 export default function CondosPage() {
   const { user } = useAuth();
   const { condos, loading, refetch: refetchCondos } = useCondos(user?.id);
@@ -406,13 +416,6 @@ export default function CondosPage() {
     },
   ];
 
-  const documentTypes = [
-    { value: "condo_image", label: "รูปคอนโด" },
-    { value: "purchase_contract", label: "สัญญาเช่าซื้อขาย" },
-    { value: "land_deed", label: "โฉนด" },
-    { value: "insurance", label: "ประกัน" },
-    { value: "other", label: "อื่นๆ" },
-  ];
 
   return (
     <MainLayout>
@@ -739,7 +742,7 @@ export default function CondosPage() {
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="">เลือกประเภทเอกสาร</option>
-                {documentTypes.map((type) => (
+                {CONDO_DOCUMENT_TYPES.map((type) => (
                   <option key={type.value} value={type.value}>
                     {type.label}
                   </option>
@@ -759,7 +762,7 @@ export default function CondosPage() {
 
             <DocumentPreview
               documents={condoDocuments}
-              documentTypes={documentTypes}
+              documentTypes={CONDO_DOCUMENT_TYPES}
               loading={condoDocumentsLoading}
               onDeleteDocument={handleDocumentDelete}
               title="เอกสารที่มีอยู่"

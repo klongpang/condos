@@ -23,6 +23,23 @@ import { Filter, DollarSign, TrendingUp, TrendingDown, Wallet, BarChart3 } from 
 import { StatsCard } from "@/components/ui/stats-card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+// Static data hoisted outside component to prevent recreation on every render
+// See: Vercel Best Practices - rendering-hoist-jsx
+const MONTH_OPTIONS_REPORT = [
+  { value: "01", label: "มกราคม" },
+  { value: "02", label: "กุมภาพันธ์" },
+  { value: "03", label: "มีนาคม" },
+  { value: "04", label: "เมษายน" },
+  { value: "05", label: "พฤษภาคม" },
+  { value: "06", label: "มิถุนายน" },
+  { value: "07", label: "กรกฎาคม" },
+  { value: "08", label: "สิงหาคม" },
+  { value: "09", label: "กันยายน" },
+  { value: "10", label: "ตุลาคม" },
+  { value: "11", label: "พฤศจิกายน" },
+  { value: "12", label: "ธันวาคม" },
+];
+
 export default function ReportsPage() {
   const { user } = useAuth()
   const { incomeRecords, expenseRecords, loading: financialsLoading } = useFinancialRecords(user?.id)
@@ -34,21 +51,6 @@ export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>("all") // New state for month filter
   const [selectedCondoFilter, setSelectedCondoFilter] = useState<string>("all")
 
-  // Generate month options in Thai
-  const monthOptions = [
-    { value: "01", label: "มกราคม" },
-    { value: "02", label: "กุมภาพันธ์" },
-    { value: "03", label: "มีนาคม" },
-    { value: "04", label: "เมษายน" },
-    { value: "05", label: "พฤษภาคม" },
-    { value: "06", label: "มิถุนายน" },
-    { value: "07", label: "กรกฎาคม" },
-    { value: "08", label: "สิงหาคม" },
-    { value: "09", label: "กันยายน" },
-    { value: "10", label: "ตุลาคม" },
-    { value: "11", label: "พฤศจิกายน" },
-    { value: "12", label: "ธันวาคม" },
-  ]
 
   // Memoized filtered financial records based on year, month, and condo
   const filteredFinancialRecords = useMemo(() => {
@@ -280,7 +282,7 @@ export default function ReportsPage() {
                   className="px-2 py-1 sm:px-3 bg-gray-700 border border-gray-600 rounded text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="all">ทั้งหมด</option>
-                  {monthOptions.map((month) => (
+                  {MONTH_OPTIONS_REPORT.map((month) => (
                     <option key={month.value} value={month.value}>
                       {month.label}
                     </option>
@@ -369,7 +371,7 @@ export default function ReportsPage() {
           <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 sm:p-6">
             <h2 className="text-base sm:text-xl font-semibold text-white mb-3 sm:mb-4">
               รายรับตามหมวดหมู่ ({selectedYear === "all" ? "ทุกปี" : Number.parseInt(selectedYear) + 543}
-              {selectedMonth !== "all" && ` - ${monthOptions.find((m) => m.value === selectedMonth)?.label}`})
+              {selectedMonth !== "all" && ` - ${MONTH_OPTIONS_REPORT.find((m) => m.value === selectedMonth)?.label}`})
             </h2>
             {financialsLoading ? (
               <div className="text-gray-400 text-center py-10">กำลังโหลดข้อมูล...</div>
@@ -407,7 +409,7 @@ export default function ReportsPage() {
           <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 sm:p-6">
             <h2 className="text-base sm:text-xl font-semibold text-white mb-3 sm:mb-4">
               รายจ่ายตามหมวดหมู่ ({selectedYear === "all" ? "ทุกปี" : Number.parseInt(selectedYear) + 543}
-              {selectedMonth !== "all" && ` - ${monthOptions.find((m) => m.value === selectedMonth)?.label}`})
+              {selectedMonth !== "all" && ` - ${MONTH_OPTIONS_REPORT.find((m) => m.value === selectedMonth)?.label}`})
             </h2>
             {financialsLoading ? (
               <div className="text-gray-400 text-center py-10">กำลังโหลดข้อมูล...</div>
@@ -447,7 +449,7 @@ export default function ReportsPage() {
         <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 sm:p-6">
           <h2 className="text-base sm:text-xl font-semibold text-white mb-3 sm:mb-4">
             สถานะการชำระค่าเช่า ({selectedYear === "all" ? "ทุกปี" : Number.parseInt(selectedYear) + 543}
-            {selectedMonth !== "all" && ` - ${monthOptions.find((m) => m.value === selectedMonth)?.label}`})
+            {selectedMonth !== "all" && ` - ${MONTH_OPTIONS_REPORT.find((m) => m.value === selectedMonth)?.label}`})
           </h2>
           {paymentsLoading ? (
             <div className="text-gray-400 text-center py-10">กำลังโหลดข้อมูล...</div>

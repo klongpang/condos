@@ -21,6 +21,23 @@ import { useAuth } from "@/lib/auth-context";
 import { useNotifications } from "@/lib/hooks/use-queries";
 import type { NotificationSummary, NotificationItem } from "@/lib/supabase";
 
+// Static data hoisted outside component to prevent recreation on every render
+// See: Vercel Best Practices - rendering-hoist-jsx
+const MONTH_OPTIONS_SHORT = [
+  { value: "1", label: "ม.ค." },
+  { value: "2", label: "ก.พ." },
+  { value: "3", label: "มี.ค." },
+  { value: "4", label: "เม.ย." },
+  { value: "5", label: "พ.ค." },
+  { value: "6", label: "มิ.ย." },
+  { value: "7", label: "ก.ค." },
+  { value: "8", label: "ส.ค." },
+  { value: "9", label: "ก.ย." },
+  { value: "10", label: "ต.ค." },
+  { value: "11", label: "พ.ย." },
+  { value: "12", label: "ธ.ค." },
+];
+
 export default function NotificationsPage() {
   const { user } = useAuth();
   const { summaries, loading, markAsRead, markAllAsRead, refetch, unreadCount, totalItems } =
@@ -38,21 +55,7 @@ export default function NotificationsPage() {
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 3 }, (_, i) => currentYear - i);
 
-  // Month options in Thai
-  const monthOptions = [
-    { value: "1", label: "ม.ค." },
-    { value: "2", label: "ก.พ." },
-    { value: "3", label: "มี.ค." },
-    { value: "4", label: "เม.ย." },
-    { value: "5", label: "พ.ค." },
-    { value: "6", label: "มิ.ย." },
-    { value: "7", label: "ก.ค." },
-    { value: "8", label: "ส.ค." },
-    { value: "9", label: "ก.ย." },
-    { value: "10", label: "ต.ค." },
-    { value: "11", label: "พ.ย." },
-    { value: "12", label: "ธ.ค." },
-  ];
+
 
   // Filter summaries
   const filteredSummaries = summaries?.filter((summary) => {
@@ -198,7 +201,7 @@ export default function NotificationsPage() {
                 className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-white text-xs sm:text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
               >
                 <option value="" className="bg-gray-900">ทุกเดือน</option>
-                {monthOptions.map((month) => (
+                {MONTH_OPTIONS_SHORT.map((month) => (
                   <option key={month.value} value={month.value} className="bg-gray-900">
                     {month.label}
                   </option>
